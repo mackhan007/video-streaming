@@ -18,11 +18,12 @@ Commit messages: [commitlint](https://commitlint.js.org/) — [docs/commitlint.m
 | Docker data plane (LocalStack S3, Postgres, Redis, Kafka, nginx CDN + UIs) | **Done** |
 | Unified EMS HTTP server (`ems` on `:8080`) | **Done** |
 | Upload controller (presign → PUT S3 → complete → Kafka) | **Done** |
-| Listing / streaming controllers | **Stub** (`501 Not Implemented`) |
-| IMS processor (transcode / HLS worker) | **Stub** (health only) |
+| Streaming (`GET /streamer/stream`) | **Done** |
+| Listing controller | **Stub** (`501`) |
+| IMS processor (Kafka → FFmpeg HLS → ready) | **Done** |
 | Frontend | **Uploader UI** (listing/player later) |
 
-Primary local entrypoint: **`cargo run -p ems-server --bin ems`** (system Rust toolchain).
+Primary local entrypoint: **`npm run dev`** (EMS + IMS + Vite) or **`cargo run -p ems-server --bin ems`**.
 
 ---
 
@@ -30,9 +31,9 @@ Primary local entrypoint: **`cargo run -p ems-server --bin ems`** (system Rust t
 
 1. A client asks the backend for **presigned upload URLs** and PUTs the file **directly to object storage**.
 2. The client calls **upload completed**. The backend checks the object exists, marks the row `uploaded`, and publishes Kafka `video.uploaded`.
-3. A **worker** (IMS, not implemented yet) will transcode into HLS renditions, write `master.m3u8`, and mark the video `ready`.
+3. The **IMS processor** consumes the event, claims the row, runs **FFmpeg ABR HLS** (360p / 720p / 1080p), uploads `hls/{file_id}/`, and sets status `ready` with `playback_path`.
 4. Listing will read **Redis**, then **Postgres**, and return paginated catalog data (stub today).
-5. Playback: streaming API returns a **master playlist URL**; the player talks to **nginx** (local CDN). nginx pulls from **LocalStack S3** on cache miss (stub today).
+5. Playback: `GET /streamer/stream?file_id=` returns a **master playlist URL**; the player talks to **nginx** (local CDN). nginx pulls from **LocalStack S3** on cache miss.
 
 This is **Video On Demand**. Live ingest is out of scope for the current APIs.
 
@@ -75,8 +76,8 @@ Details, ports, and UIs: [docs/local-setup.md](docs/local-setup.md). Uploader ap
 | **EMS server** | Single domain for upload + listing + streaming | `backend/ems/server` → bin `ems` |
 | **Video Upload** | Presigned URLs, complete, enqueue | `backend/ems/upload` (lib + bin `ems-upload`) |
 | **Video Listing** | Paginated catalog | `backend/ems/listing` (stub) |
-| **Video Streaming** | Master URL + watch state | `backend/ems/streaming` (stub) |
-| **Video Processing (IMS)** | Kafka worker: transcode / HLS | `backend/ims/processor` (stub) |
+| **Video Streaming** | Master playlist URL | `backend/ems/streaming` |
+| **Video Processing (IMS)** | Kafka → FFmpeg HLS → ready | `backend/ims/processor` |
 | **Frontend** | Upload desk (React) | `frontend/` |
 
 ### Data stores
@@ -233,4 +234,4 @@ helm/              # empty
 scale-test/        # empty
 ```
 
-Next vertical slice: IMS consume `video.uploaded` → one HLS rendition → implement listing + stream URL → play through nginx `:8081`.
+Next vertical slice: listing catalog + watch-state + player UI.
