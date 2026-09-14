@@ -4,7 +4,8 @@
 
 - Root: `backend/Cargo.toml`
 - `default-members = ["ems/server"]`
-- Logging bootstrap: `backend/shared/src/logging.rs` → `shared::logging::init()`
+- Logging bootstrap: `backend/shared/src/logging.rs` → `shared::logging::init()`  
+  → stdout **and** `{LOG_DIR}/{LOG_NAME|exe}.log` (default `logs/ems.log`, `logs/ims-processor.log`, …)
 
 ## Crates → binaries
 

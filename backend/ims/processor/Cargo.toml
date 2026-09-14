@@ -3,7 +3,7 @@ name = "ims-processor"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "IMS Video Processor worker (stub)"
+description = "IMS Video Processor — Kafka consumer, HLS chunking, DB status"
 
 [[bin]]
 name = "ims-processor"
@@ -13,5 +13,17 @@ path = "src/bin/ims-processor.rs"
 shared = { workspace = true }
 axum = { workspace = true }
 tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
 tracing = { workspace = true }
 dotenvy = { workspace = true }
+chrono = { workspace = true }
+async-trait = { workspace = true }
+sqlx = { workspace = true }
+aws-sdk-s3 = { workspace = true }
+aws-credential-types = { workspace = true }
+rdkafka = { workspace = true }
+bytes = { workspace = true }

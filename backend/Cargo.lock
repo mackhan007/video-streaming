@@ -1036,12 +1036,18 @@ dependencies = [
 name = "ems-streaming"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "async-trait",
  "axum",
  "dotenvy",
+ "serde",
  "serde_json",
  "shared",
+ "sqlx",
+ "thiserror",
  "tokio",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -1743,11 +1749,23 @@ dependencies = [
 name = "ims-processor"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "async-trait",
+ "aws-credential-types",
+ "aws-sdk-s3",
  "axum",
+ "bytes",
+ "chrono",
  "dotenvy",
+ "rdkafka",
+ "serde",
+ "serde_json",
  "shared",
+ "sqlx",
+ "thiserror",
  "tokio",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
