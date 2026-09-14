@@ -66,7 +66,10 @@ impl<'a> RetryProcessing<'a> {
         if video.is_deleted() {
             return Err(RetryProcessingError::Deleted(file_id));
         }
-        if video.status != VideoStatus::Failed {
+        if matches!(
+            video.status,
+            VideoStatus::Pending | VideoStatus::Ready
+        ) {
             return Err(RetryProcessingError::NotRetryable(file_id, video.status));
         }
 

@@ -123,7 +123,7 @@ impl VideoRepository for PostgresVideoRepository {
                 updated_at = now()
             WHERE id = $1
               AND deleted_at IS NULL
-              AND status = 'failed'
+              AND status IN ('failed', 'processing', 'uploaded')
             RETURNING {cols}
             "#,
         )

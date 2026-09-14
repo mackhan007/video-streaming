@@ -60,7 +60,12 @@ impl VideoRepository for FakeVideos {
     async fn requeue_failed(&self, id: VideoId) -> Result<Video, VideoRepoError> {
         let mut g = self.rows.lock().unwrap();
         let v = g.get_mut(&id).ok_or(VideoRepoError::NotFound(id))?;
-        if v.status != shared::VideoStatus::Failed {
+        if !matches!(
+            v.status,
+            shared::VideoStatus::Failed
+                | shared::VideoStatus::Processing
+                | shared::VideoStatus::Uploaded
+        ) {
             return Err(VideoRepoError::NotFound(id));
         }
         v.status = shared::VideoStatus::Uploaded;

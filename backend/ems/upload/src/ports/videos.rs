@@ -20,7 +20,7 @@ pub trait VideoRepository: Send + Sync {
     async fn mark_event_published(&self, id: VideoId) -> Result<(), VideoRepoError>;
     /// pending → failed (abort / cleanup).
     async fn mark_failed(&self, id: VideoId) -> Result<Video, VideoRepoError>;
-    /// failed → uploaded (clear playback; allow IMS claim again).
+    /// failed / processing / uploaded → uploaded (clear playback; IMS can claim again).
     async fn requeue_failed(&self, id: VideoId) -> Result<Video, VideoRepoError>;
     /// Soft delete: set `deleted_at` (idempotent). Does not remove S3 objects.
     async fn soft_delete(&self, id: VideoId) -> Result<Video, VideoRepoError>;
