@@ -1,6 +1,7 @@
-use shared::{PipelineStep, VideoId};
+use shared::VideoId;
 use tracing::info;
 
+use crate::app::pipeline_progress::{attach_progress, PipelineStepView};
 use crate::ports::pipeline::{PipelineRepoError, PipelineRepository};
 
 /// `GET /uploader/videos/{file_id}/pipeline` — steps from `video_pipeline_steps`.
@@ -10,7 +11,7 @@ pub struct GetPipeline<'a> {
 
 pub struct GetPipelineOutput {
     pub file_id: VideoId,
-    pub steps: Vec<PipelineStep>,
+    pub steps: Vec<PipelineStepView>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -32,6 +33,10 @@ impl<'a> GetPipeline<'a> {
         if steps.is_empty() {
             return Err(GetPipelineError::NotFound);
         }
-        Ok(GetPipelineOutput { file_id, steps })
+        let progress = self.pipeline.encode_progress(file_id).await?;
+        Ok(GetPipelineOutput {
+            file_id,
+            steps: attach_progress(steps, &progress),
+        })
     }
 }

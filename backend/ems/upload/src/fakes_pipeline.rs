@@ -82,4 +82,11 @@ impl PipelineRepository for FakePipeline {
         });
         Ok(out)
     }
+
+    async fn encode_progress(
+        &self,
+        _video_id: VideoId,
+    ) -> Result<crate::ports::pipeline::EncodeProgress, PipelineRepoError> {
+        Ok(crate::ports::pipeline::EncodeProgress::default())
+    }
 }

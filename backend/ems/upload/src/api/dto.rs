@@ -73,6 +73,12 @@ pub struct PipelineStepDto {
     pub error: Option<String>,
     pub started_at: Option<chrono::DateTime<chrono::Utc>>,
     pub finished_at: Option<chrono::DateTime<chrono::Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub progress_pct: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chunks_done: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chunks_total: Option<i32>,
 }
 
 #[derive(Debug, Serialize)]

@@ -10,10 +10,10 @@ Resource: **`/uploader/videos`**
 | -------- | ------------------------------------- | -------------------- | --------------------------------- |
 | `POST`   | `/uploader/videos`                    | **201** + `Location` | create upload / presign + init pipeline steps |
 | `GET`    | `/uploader/videos/{file_id}`          | 200                  | video row status                  |
-| `GET`    | `/uploader/videos/{file_id}/pipeline` | 200                  | steps from `video_pipeline_steps` |
+| `GET`    | `/uploader/videos/{file_id}/pipeline` | 200                  | steps + ABR `progress_pct` |
 | `POST`   | `/uploader/videos/{file_id}/complete` | 200                  | verify S3 + mark uploaded + Kafka |
 | `POST`   | `/uploader/videos/{file_id}/abort`    | 200                  | cancel pending                    |
-| `POST`   | `/uploader/videos/{file_id}/retry`    | 200                  | re-queue failed → Kafka / IMS     |
+| `POST`   | `/uploader/videos/{file_id}/retry`    | 200                  | re-queue failed/processing/uploaded → Kafka; IMS revives failed chunk jobs |
 | `DELETE` | `/uploader/videos/{file_id}`          | 200                  | soft delete (`deleted_at`)        |
 
 `file_id` is in the path (not the body) for complete / abort / delete.
@@ -25,8 +25,8 @@ Resource: **`/uploader/videos`**
 | Routes    | `backend/ems/upload/src/api/routes.rs`                                                   |
 | Handlers  | `backend/ems/upload/src/api/handlers.rs`, `handlers_status.rs`, `handlers_pipeline.rs` |
 | DTOs      | `backend/ems/upload/src/api/dto.rs`                                                      |
-| Use cases | `app/get_upload_url.rs`, `complete_upload.rs`, `abort_upload.rs`, `get_pipeline.rs`, … |
-| Pipeline  | `ports/pipeline.rs` · `adapters/postgres/pipeline.rs` · table `video_pipeline_steps` |
+| Use cases | `app/get_upload_url.rs`, `complete_upload.rs`, `abort_upload.rs`, `get_pipeline.rs`, `pipeline_progress.rs`, … |
+| Pipeline  | `ports/pipeline.rs` · `adapters/postgres/pipeline.rs` · `adapters/postgres/encode_progress.rs` |
 
 ## Limits (env)
 

@@ -128,6 +128,13 @@ impl PipelineRepository for PostgresPipeline {
         out.sort_by_key(|s| step_ord(s.step));
         Ok(out)
     }
+
+    async fn encode_progress(
+        &self,
+        video_id: VideoId,
+    ) -> Result<crate::ports::pipeline::EncodeProgress, PipelineRepoError> {
+        super::encode_progress::load(&self.pool, video_id).await
+    }
 }
 
 fn step_ord(s: PipelineStepName) -> u8 {

@@ -1,5 +1,6 @@
 //! Postgres video repository (split to stay under the 200-line file limit).
 
+mod encode_progress;
 mod pipeline;
 mod repo;
 mod row;

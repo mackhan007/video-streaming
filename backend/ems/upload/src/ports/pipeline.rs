@@ -22,4 +22,23 @@ pub trait PipelineRepository: Send + Sync {
     ) -> Result<(), PipelineRepoError>;
 
     async fn list_steps(&self, video_id: VideoId) -> Result<Vec<PipelineStep>, PipelineRepoError>;
+
+    /// Chunk encode progress from `ims_encode_jobs` (empty if not chunked).
+    async fn encode_progress(
+        &self,
+        video_id: VideoId,
+    ) -> Result<EncodeProgress, PipelineRepoError>;
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct EncodeProgress {
+    pub pack_ladder: bool,
+    pub rungs: Vec<RungProgress>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct RungProgress {
+    pub rung: i32,
+    pub done: i32,
+    pub total: i32,
 }

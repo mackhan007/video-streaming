@@ -6,6 +6,7 @@ pub mod complete_upload;
 pub mod get_pipeline;
 pub mod get_upload_url;
 pub mod get_video_status;
+pub mod pipeline_progress;
 pub mod pipeline_track;
 pub mod retry_processing;
 pub mod soft_delete_video;

@@ -31,12 +31,15 @@ pub async fn get_pipeline(
             .steps
             .into_iter()
             .map(|s| PipelineStepDto {
-                step: s.step.as_str().to_string(),
-                state: s.state.as_str().to_string(),
-                detail: s.detail,
-                error: s.error,
-                started_at: s.started_at,
-                finished_at: s.finished_at,
+                step: s.step.step.as_str().to_string(),
+                state: s.step.state.as_str().to_string(),
+                detail: s.step.detail,
+                error: s.step.error,
+                started_at: s.step.started_at,
+                finished_at: s.step.finished_at,
+                progress_pct: s.progress_pct,
+                chunks_done: s.chunks_done,
+                chunks_total: s.chunks_total,
             })
             .collect(),
     }))
