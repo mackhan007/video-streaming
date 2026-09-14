@@ -35,6 +35,15 @@ impl EncodeJobRepository for PostgresEncodeJobs {
         Ok(n.0)
     }
 
+    async fn clear_batch(&self, video_id: VideoId) -> Result<(), EncodeJobError> {
+        sqlx::query("DELETE FROM ims_encode_batches WHERE video_id = $1")
+            .bind(video_id.as_uuid())
+            .execute(&self.pool)
+            .await
+            .map_err(|e| EncodeJobError::Internal(e.into()))?;
+        Ok(())
+    }
+
     async fn revive_failed_batch(&self, video_id: VideoId) -> Result<bool, EncodeJobError> {
         claim::revive_failed_batch(&self.pool, video_id).await
     }

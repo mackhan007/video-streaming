@@ -39,6 +39,9 @@ pub enum EncodeJobError {
 pub trait EncodeJobRepository: Send + Sync {
     async fn has_batch(&self, video_id: VideoId) -> Result<bool, EncodeJobError>;
 
+    /// Drop batch + jobs (retry after a stuck encode).
+    async fn clear_batch(&self, video_id: VideoId) -> Result<(), EncodeJobError>;
+
     async fn revive_failed_batch(&self, video_id: VideoId) -> Result<bool, EncodeJobError>;
 
     /// Collapse old per-rung jobs into one packed job per chunk.

@@ -7,7 +7,7 @@ use crate::adapters::pipeline::{track, track_abr};
 use crate::ports::encode_jobs::EncodeJobRepository;
 use crate::ports::{PipelineRepository, TranscodeError};
 
-/// `Ok(true)` if Kafka should not download/enqueue (live batch, or failed batch revived).
+/// `Ok(true)` if Kafka should not download/enqueue (duplicate while already processing).
 pub async fn skip_if_batch_live(
     jobs: &Arc<dyn EncodeJobRepository>,
     pipeline: &dyn PipelineRepository,

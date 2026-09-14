@@ -17,7 +17,7 @@ use crate::adapters::{
 use crate::app::job_loop::EncodeJobLoop;
 use crate::config::Config;
 use crate::ports::{
-    EncodeJobRepository, HlsTranscoder, ObjectStore, PipelineRepository, VideoRepository,
+    EncodeJobRepository, ObjectStore, PipelineRepository, VideoRepository,
 };
 
 pub async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -51,7 +51,6 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         encode_parallel: config.encode_parallel,
         preset: config.ffmpeg_preset.clone(),
     });
-    let transcoder: Arc<dyn HlsTranscoder> = ffmpeg.clone();
     let objects_arc = objects.clone();
 
     let worker = KafkaWorker::connect(
@@ -60,11 +59,9 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         &config.kafka_topic,
         videos.clone(),
         objects_arc,
-        transcoder,
         pipeline.clone(),
         jobs.clone(),
         config.work_dir.clone(),
-        config.hls_segment_secs,
         config.chunk_secs,
         config.ffmpeg_path.clone(),
     )?;

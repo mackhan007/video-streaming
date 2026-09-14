@@ -31,8 +31,23 @@ pub fn plan_chunks(duration_secs: f64, chunk_secs: f64) -> Vec<EncodeChunk> {
         .collect()
 }
 
+/// Time-slice when the timeline is long enough. File size does not matter
+/// (a 122 MiB lecture can still be 50 minutes).
 pub fn should_chunk(duration_secs: f64, chunk_secs: f64) -> bool {
     duration_secs > chunk_secs * 1.5
+}
+
+/// Time slices for `ims_encode_jobs`. `duration_secs == 0` means the whole file (no `-t`).
+pub fn encode_plan(duration_secs: f64, chunk_secs: f64) -> Vec<EncodeChunk> {
+    if should_chunk(duration_secs, chunk_secs) {
+        plan_chunks(duration_secs, chunk_secs)
+    } else {
+        vec![EncodeChunk {
+            index: 0,
+            start_secs: 0.0,
+            duration_secs: 0.0,
+        }]
+    }
 }
 
 #[cfg(test)]
@@ -52,5 +67,7 @@ mod tests {
         assert_eq!(chunks.len(), 1);
         assert!(!should_chunk(30.0, 60.0));
         assert!(should_chunk(200.0, 60.0));
+        let slices = encode_plan(2932.0, 90.0);
+        assert_eq!(slices.len(), 33);
     }
 }

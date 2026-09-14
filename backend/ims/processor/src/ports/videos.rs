@@ -4,6 +4,8 @@ use thiserror::Error;
 #[derive(Debug, Clone)]
 pub struct VideoRow {
     pub object_key: String,
+    /// Previous status was `uploaded` (first claim or retry) — drop any stale encode batch.
+    pub from_uploaded: bool,
 }
 
 

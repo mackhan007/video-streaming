@@ -1,7 +1,7 @@
 # Docker Desktop / laptop overlay — smaller IMS, no HPA, local images.
 replicaCount:
   ems: 1
-  ims: 2
+  ims: 3
 
 image:
   ems: ems:latest
@@ -15,7 +15,7 @@ ims:
     minReplicas: 1
     maxReplicas: 2
     cpuPercent: 70
-  chunkSecs: 90
+  chunkSecs: 60
   encodeParallel: 2
   preset: ultrafast
 
@@ -33,7 +33,7 @@ resources:
       cpu: 250m
       memory: 512Mi
     limits:
-      cpu: "2.5"
+      cpu: "4"
       memory: 2Gi
   frontend:
     requests:

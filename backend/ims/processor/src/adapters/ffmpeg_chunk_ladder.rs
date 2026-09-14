@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::adapters::ffmpeg_args::EncodeOpts;
-use crate::adapters::ladder::DEFAULT_LADDER;
+use crate::adapters::ladder::LadderRung;
 use crate::ports::transcoder::TranscodeError;
 
 /// One FFmpeg: seek window → split/scale all ABR rungs (single decode).
@@ -12,26 +12,13 @@ pub fn build_chunk_ladder_args(
     segment_secs: u32,
     with_audio: bool,
     opts: &EncodeOpts<'_>,
+    ladder: &[LadderRung],
 ) -> Result<Vec<String>, TranscodeError> {
     let input_s = input
         .to_str()
         .ok_or_else(|| TranscodeError::Ffmpeg("invalid path".into()))?
         .to_string();
-    let n = DEFAULT_LADDER.len();
-    let mut fc = format!("[0:v]split={n}");
-    for i in 0..n {
-        fc.push_str(&format!("[v{i}]"));
-    }
-    fc.push(';');
-    for (i, rung) in DEFAULT_LADDER.iter().enumerate() {
-        fc.push_str(&format!(
-            "[v{i}]scale=-2:{}:force_original_aspect_ratio=decrease,format=yuv420p,pad=ceil(iw/2)*2:ceil(ih/2)*2[s{i}]",
-            rung.height
-        ));
-        if i + 1 < n {
-            fc.push(';');
-        }
-    }
+    let fc = ladder_filter_complex(ladder, with_audio);
 
     let mut args = vec![
         "-y".into(),
@@ -47,7 +34,7 @@ pub fn build_chunk_ladder_args(
         args.extend(["-t".into(), format!("{t:.3}")]);
     }
     args.extend(["-filter_complex".into(), fc]);
-    for (i, rung) in DEFAULT_LADDER.iter().enumerate() {
+    for (i, rung) in ladder.iter().enumerate() {
         append_rung_output(&mut args, out_dir, chunk_index, i, rung, with_audio, opts, segment_secs);
     }
     Ok(args)
@@ -58,7 +45,7 @@ fn append_rung_output(
     out_dir: &Path,
     chunk_index: usize,
     i: usize,
-    rung: &crate::adapters::ladder::LadderRung,
+    rung: &LadderRung,
     with_audio: bool,
     opts: &EncodeOpts<'_>,
     segment_secs: u32,
@@ -70,7 +57,7 @@ fn append_rung_output(
     let list = dir.join("index.m3u8");
     args.extend(["-map".into(), format!("[s{i}]")]);
     if with_audio {
-        args.extend(["-map".into(), "0:a:0".into()]);
+        args.extend(["-map".into(), format!("[a{i}]")]);
     }
     args.extend([
         "-c:v".into(),
@@ -117,10 +104,36 @@ fn append_rung_output(
     ]);
 }
 
+fn ladder_filter_complex(ladder: &[LadderRung], with_audio: bool) -> String {
+    let n = ladder.len();
+    let mut fc = format!("[0:v]split={n}");
+    for i in 0..n {
+        fc.push_str(&format!("[v{i}]"));
+    }
+    fc.push(';');
+    for (i, rung) in ladder.iter().enumerate() {
+        fc.push_str(&format!(
+            "[v{i}]scale=-2:{}:force_original_aspect_ratio=decrease,format=yuv420p,pad=ceil(iw/2)*2:ceil(ih/2)*2[s{i}]",
+            rung.height
+        ));
+        if i + 1 < n {
+            fc.push(';');
+        }
+    }
+    if with_audio {
+        fc.push_str(&format!(";[0:a]asplit={n}"));
+        for i in 0..n {
+            fc.push_str(&format!("[a{i}]"));
+        }
+    }
+    fc
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::adapters::ffmpeg_args::EncodeOpts;
+    use crate::adapters::ladder::DEFAULT_LADDER;
     use std::path::Path;
 
     #[test]
@@ -138,12 +151,38 @@ mod tests {
             6,
             true,
             &opts,
+            DEFAULT_LADDER,
         )
         .unwrap();
         let joined = args.join(" ");
         assert!(joined.contains("split=3"));
+        assert!(joined.contains("asplit=3"));
+        assert!(joined.contains("[a0]"));
         assert!(joined.contains("v0/c03/index.m3u8"));
         assert!(joined.contains("v2/c03/index.m3u8"));
         assert!(joined.contains("-ss 60.000"));
+    }
+
+    #[test]
+    fn packed_args_two_rungs() {
+        let opts = EncodeOpts {
+            preset: "ultrafast",
+            start_secs: None,
+            duration_secs: Some(60.0),
+            threads: 1,
+        };
+        let args = build_chunk_ladder_args(
+            Path::new("/tmp/in.mp4"),
+            Path::new("/tmp/hls"),
+            0,
+            6,
+            true,
+            &opts,
+            &DEFAULT_LADDER[..2],
+        )
+        .unwrap();
+        let joined = args.join(" ");
+        assert!(joined.contains("split=2"));
+        assert!(!joined.contains("v2/"));
     }
 }

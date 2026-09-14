@@ -6,7 +6,7 @@ use tracing::{info, warn};
 use crate::adapters::ffmpeg::FfmpegHls;
 use crate::adapters::ffmpeg_chunked::{encode_chunk_ladder, encode_one_chunk};
 use crate::adapters::ffmpeg_plan::EncodeChunk;
-use crate::adapters::ladder::DEFAULT_LADDER;
+use crate::adapters::ffmpeg_probe::{ffprobe_bin, source_ladder};
 use crate::adapters::hls_files::{hls_content_type, relative_hls_key};
 use crate::adapters::pipeline::{track, track_abr};
 use crate::app::ensure_source::SourceCache;
@@ -74,12 +74,18 @@ impl EncodeJobRunner {
         let hls_dir = PathBuf::from(&self.work_dir)
             .join(job.video_id.to_string())
             .join("hls");
+        if job.duration_secs <= 0.05 {
+            return crate::app::run_encode_full::execute_full_file(self, job, &named, &hls_dir)
+                .await;
+        }
         let chunk = EncodeChunk {
             index: job.chunk_index as usize,
             start_secs: job.start_secs,
             duration_secs: job.duration_secs,
         };
         if job.pack_ladder {
+            let probe = ffprobe_bin(&self.ffmpeg.ffmpeg_path);
+            let ladder = source_ladder(&probe, &named).await;
             encode_chunk_ladder(
                 self.ffmpeg.as_ref(),
                 &named,
@@ -87,9 +93,10 @@ impl EncodeJobRunner {
                 self.segment_secs,
                 chunk,
                 job.with_audio,
+                ladder,
             )
             .await?;
-            for ri in 0..DEFAULT_LADDER.len() {
+            for ri in 0..ladder.len() {
                 upload_chunk_dir(
                     self.objects.as_ref(),
                     &hls_dir,

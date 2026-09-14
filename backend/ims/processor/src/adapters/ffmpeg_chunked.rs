@@ -23,9 +23,9 @@ pub async fn encode_chunked(
     segment_secs: u32,
     duration: f64,
     with_audio: bool,
+    ladder: &'static [crate::adapters::ladder::LadderRung],
 ) -> Result<(), TranscodeError> {
     let chunks = plan_chunks(duration, hls.chunk_secs);
-    let ladder = DEFAULT_LADDER;
     let parallel = hls.encode_parallel.max(1);
     info!(
         chunks = chunks.len(),
@@ -43,6 +43,7 @@ pub async fn encode_chunked(
             segment_secs,
             *chunk,
             with_audio,
+            ladder,
         );
     }
     let total = set.len();
@@ -58,6 +59,7 @@ pub async fn encode_chunk_ladder(
     segment_secs: u32,
     chunk: EncodeChunk,
     with_audio: bool,
+    ladder: &[crate::adapters::ladder::LadderRung],
 ) -> Result<(), TranscodeError> {
     if !input.is_file() {
         return Err(TranscodeError::Internal(anyhow::anyhow!(
@@ -65,7 +67,7 @@ pub async fn encode_chunk_ladder(
             input.display()
         )));
     }
-    for ri in 0..DEFAULT_LADDER.len() {
+    for ri in 0..ladder.len() {
         let variant = chunk_dir(out_dir, ri, chunk.index);
         tokio::fs::create_dir_all(&variant)
             .await
@@ -80,12 +82,13 @@ pub async fn encode_chunk_ladder(
         with_audio,
         &EncodeOpts {
             preset: &hls.preset,
-            start_secs: Some(chunk.start_secs),
-            duration_secs: Some(chunk.duration_secs),
+            start_secs: (chunk.start_secs > 0.01).then_some(chunk.start_secs),
+            duration_secs: (chunk.duration_secs > 0.05).then_some(chunk.duration_secs),
             threads: 1,
         },
+        ladder,
     )?;
-    info!(chunk = chunk.index, rungs = DEFAULT_LADDER.len(), "chunk ladder encode start");
+    info!(chunk = chunk.index, rungs = ladder.len(), "chunk ladder encode start");
     FfmpegHls::run_ffmpeg(&hls.ffmpeg_path, &args).await
 }
 
@@ -139,6 +142,7 @@ fn spawn_job(
     segment_secs: u32,
     chunk: EncodeChunk,
     with_audio: bool,
+    ladder: &'static [crate::adapters::ladder::LadderRung],
 ) {
     set.spawn(async move {
         let _permit = sem
@@ -146,7 +150,8 @@ fn spawn_job(
             .await
             .context("encode semaphore")
             .map_err(TranscodeError::Internal)?;
-        encode_chunk_ladder(&hls, &input, &out_dir, segment_secs, chunk, with_audio).await?;
+        encode_chunk_ladder(&hls, &input, &out_dir, segment_secs, chunk, with_audio, ladder)
+            .await?;
         Ok(chunk.index)
     });
 }

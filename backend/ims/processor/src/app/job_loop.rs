@@ -1,19 +1,14 @@
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
 use tracing::{error, info, warn};
 
 use crate::adapters::ffmpeg::FfmpegHls;
-use crate::adapters::ffmpeg_chunked::{chunk_dir, merge_all_variants};
-use crate::adapters::ffmpeg_plan::EncodeChunk;
-use crate::adapters::hls_files::hls_content_type;
-use crate::adapters::ladder::DEFAULT_LADDER;
-use crate::adapters::master_playlist::write_master;
 use crate::adapters::pipeline::{track, track_abr};
+use crate::app::assemble_hls::assemble_hls;
 use crate::app::ensure_source::SourceCache;
 use crate::app::run_encode_job::EncodeJobRunner;
-use crate::ports::encode_jobs::{EncodeBatch, EncodeJobRepository};
+use crate::ports::encode_jobs::EncodeJobRepository;
 use crate::ports::{ObjectStore, PipelineRepository, VideoRepository};
 use shared::{PipelineStepName, PipelineStepState, VideoId};
 use tokio::sync::Semaphore;
@@ -146,51 +141,4 @@ async fn finalize_one(runner: &EncodeJobRunner, file_id: VideoId) -> anyhow::Res
             Err(e)
         }
     }
-}
-
-async fn assemble_hls(runner: &EncodeJobRunner, batch: &EncodeBatch) -> anyhow::Result<String> {
-    let file_id = batch.video_id;
-    let hls_dir = PathBuf::from(&runner.work_dir)
-        .join(file_id.to_string())
-        .join("hls");
-    let indexes = runner.jobs.chunk_indexes(file_id).await?;
-    let chunks: Vec<EncodeChunk> = indexes
-        .into_iter()
-        .map(|index| EncodeChunk {
-            index: index as usize,
-            start_secs: 0.0,
-            duration_secs: 0.0,
-        })
-        .collect();
-    for ri in 0..DEFAULT_LADDER.len() {
-        for c in &chunks {
-            let dest = chunk_dir(&hls_dir, ri, c.index).join("index.m3u8");
-            if let Some(parent) = dest.parent() {
-                tokio::fs::create_dir_all(parent).await?;
-            }
-            let key = format!("hls/{file_id}/v{ri}/c{:02}/index.m3u8", c.index);
-            runner.objects.download_to_path(&key, &dest).await?;
-        }
-    }
-    merge_all_variants(&hls_dir, &chunks, DEFAULT_LADDER.len()).await?;
-    write_master(&hls_dir, DEFAULT_LADDER, batch.with_audio).await?;
-    let prefix = format!("hls/{file_id}");
-    for ri in 0..DEFAULT_LADDER.len() {
-        let path = hls_dir.join(format!("v{ri}")).join("index.m3u8");
-        let rel = format!("v{ri}/index.m3u8");
-        runner
-            .objects
-            .upload_file(&format!("{prefix}/{rel}"), &path, hls_content_type(&rel))
-            .await?;
-    }
-    let master = hls_dir.join("master.m3u8");
-    runner
-        .objects
-        .upload_file(
-            &format!("{prefix}/master.m3u8"),
-            &master,
-            hls_content_type("master.m3u8"),
-        )
-        .await?;
-    Ok(format!("{prefix}/master.m3u8"))
 }

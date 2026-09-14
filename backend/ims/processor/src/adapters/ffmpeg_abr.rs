@@ -4,7 +4,7 @@ use tracing::warn;
 
 use crate::adapters::ffmpeg::FfmpegHls;
 use crate::adapters::ffmpeg_chunked::encode_chunked;
-use crate::adapters::ladder::DEFAULT_LADDER;
+use crate::adapters::ladder::LadderRung;
 use crate::ports::transcoder::TranscodeError;
 
 pub async fn encode_full_abr(
@@ -12,8 +12,8 @@ pub async fn encode_full_abr(
     input: &Path,
     out_dir: &Path,
     segment_secs: u32,
+    ladder: &[LadderRung],
 ) -> Result<bool, TranscodeError> {
-    let ladder = DEFAULT_LADDER;
     match hls
         .encode_rungs_parallel(input, out_dir, segment_secs, ladder, true)
         .await
@@ -35,13 +35,14 @@ pub async fn encode_chunked_abr(
     out_dir: &Path,
     segment_secs: u32,
     duration: f64,
+    ladder: &'static [LadderRung],
 ) -> Result<bool, TranscodeError> {
-    match encode_chunked(hls, input, out_dir, segment_secs, duration, true).await {
+    match encode_chunked(hls, input, out_dir, segment_secs, duration, true, ladder).await {
         Ok(()) => Ok(true),
         Err(e) => {
             warn!(error = %e, "chunked abr with audio failed; retry without audio");
-            FfmpegHls::reset_variant_dirs(out_dir, DEFAULT_LADDER.len()).await?;
-            encode_chunked(hls, input, out_dir, segment_secs, duration, false).await?;
+            FfmpegHls::reset_variant_dirs(out_dir, ladder.len()).await?;
+            encode_chunked(hls, input, out_dir, segment_secs, duration, false, ladder).await?;
             Ok(false)
         }
     }

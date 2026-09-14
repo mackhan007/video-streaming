@@ -42,12 +42,19 @@ impl VideoRepository for PostgresVideos {
         debug!(%file_id, "claim_for_processing");
         let row = sqlx::query(
             r#"
-            UPDATE videos
+            WITH old AS (
+                SELECT object_key, status
+                FROM videos
+                WHERE id = $1
+                  AND deleted_at IS NULL
+                  AND status IN ('uploaded', 'processing')
+                FOR UPDATE
+            )
+            UPDATE videos AS v
             SET status = 'processing', updated_at = NOW()
-            WHERE id = $1
-              AND deleted_at IS NULL
-              AND status IN ('uploaded', 'processing')
-            RETURNING object_key
+            FROM old
+            WHERE v.id = $1
+            RETURNING v.object_key, (old.status = 'uploaded') AS from_uploaded
             "#,
         )
         .bind(file_id.as_uuid())
@@ -57,6 +64,7 @@ impl VideoRepository for PostgresVideos {
 
         Ok(row.map(|r| VideoRow {
             object_key: r.get("object_key"),
+            from_uploaded: r.get("from_uploaded"),
         }))
     }
 

@@ -9,7 +9,7 @@ use tracing::{error, info, warn};
 
 use crate::app::process_uploaded::ProcessUploaded;
 use crate::ports::{
-    EncodeJobRepository, HlsTranscoder, ObjectStore, PipelineRepository, VideoRepository,
+    EncodeJobRepository, ObjectStore, PipelineRepository, VideoRepository,
 };
 
 pub struct KafkaWorker {
@@ -25,11 +25,9 @@ impl KafkaWorker {
         topic: &str,
         videos: Arc<dyn VideoRepository>,
         objects: Arc<dyn ObjectStore>,
-        transcoder: Arc<dyn HlsTranscoder>,
         pipeline: Arc<dyn PipelineRepository>,
         jobs: Arc<dyn EncodeJobRepository>,
         work_dir: String,
-        segment_secs: u32,
         chunk_secs: f64,
         ffmpeg_path: String,
     ) -> anyhow::Result<Self> {
@@ -50,11 +48,9 @@ impl KafkaWorker {
             processor: ProcessUploaded {
                 videos,
                 objects,
-                transcoder,
                 pipeline,
                 jobs,
                 work_dir,
-                segment_secs,
                 chunk_secs,
                 ffmpeg_path,
             },
@@ -80,6 +76,7 @@ impl KafkaWorker {
                     };
                     match serde_json::from_str::<VideoUploaded>(payload) {
                         Ok(event) => {
+                            // Claim + enqueue only — FFmpeg runs in EncodeJobLoop.
                             if let Err(e) = self.processor.execute(&event).await {
                                 error!(error = %e, file_id = %event.file_id, "process failed");
                             }

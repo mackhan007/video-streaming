@@ -8,14 +8,14 @@ Kafka worker: `video.uploaded` → claim DB row → download raw → **FFmpeg AB
 | Bin | `ims-processor` · health `:PROCESSOR_HTTP_PORT` (8088) |
 | Group | `KAFKA_GROUP_ID` default `ims-processor` (one consumer per replica / `IMS_WORKERS`) |
 | Requires | `ffmpeg` + `ffprobe` on `PATH` (or `FFMPEG_PATH`) |
-| Scale | Kafka topic partitions ≥ workers ([infra.md](infra.md) `kafka-init` = 12). Long files enqueue per-chunk jobs; **every IMS replica** claims work (`SKIP LOCKED`). Each pod downloads the source **once** (`SourceCache` + `source.name`) so parallel FFmpeg jobs do not clobber the file. |
+| Scale | Kafka topic partitions ≥ workers ([infra.md](infra.md) `kafka-init` = 12). **Kafka only claims + enqueues** (`ims_encode_jobs`); FFmpeg runs in `EncodeJobLoop` so a long encode cannot block the next upload. When `duration > 1.5 × IMS_CHUNK_SECS`: one packed job per time slice; otherwise one whole-file job. Packed ladder uses `asplit` and **drops rungs taller than the source**. Each pod downloads the source **once** (`SourceCache` + `source.name`). |
 
 ## Flow
 
 1. Consume Kafka `VideoUploaded { file_id, object_key }` (key = `file_id`)
 2. `UPDATE` claim: `uploaded|processing` → `processing` (indexed)
 3. Download `object_key` from S3 to `IMS_WORK_DIR`
-4. FFmpeg **ABR ladder** (`HLS_SEGMENT_SECS`, default 6): **360p / 720p / 1080p**. Short files: one FFmpeg per rung on the Kafka consumer. Long files (`duration > 1.5 × IMS_CHUNK_SECS`): insert `ims_encode_jobs` (**one row per chunk**; `pack_ladder` — one FFmpeg decodes once and writes all rungs). **All IMS pods** claim jobs (`FOR UPDATE SKIP LOCKED`), encode, upload `hls/{id}/v{r}/cNN/`, then one replica merges playlists + `master.m3u8`. Logs: `packed ladder jobs shared across IMS replicas`, `claimed encode job` (`pack=true`), `chunk ladder encode start` / `chunk encode ok`. `chunked abr encode` is only the **in-process** fallback path. Startup converts leftover per-rung batches (`upgraded encode batch to packed ladder`), **pauses encode batches whose video is not `processing`**, and requeues `running` jobs left by dead pods. Claim order: newest encoding batch, then `chunk_index` (so the file you just uploaded is not starved by older jobs). IMS uses Deployment `Recreate` so those startup repairs are safe.
+4. Download `object_key` from S3, probe, insert `ims_encode_jobs`, **return** (commit Kafka). Job loop claims with `SKIP LOCKED`. Long files: one packed job per `IMS_CHUNK_SECS` slice (`duration > 1.5 × chunk`). Short files: one whole-file job (`duration_secs=0`, no `-t`). Then upload `hls/{id}/v{r}/cNN/`, merge playlists + `master.m3u8`. Logs: `encode jobs queued for job loop`, `claimed encode job`, `chunk ladder encode start`. A claim from `uploaded` **deletes** any stale encode batch. Startup heals `running` jobs left by dead pods.
 5. Upload tree:
    - `hls/{file_id}/master.m3u8`
    - `hls/{file_id}/v0|v1|v2/index.m3u8` + `seg_*.ts` (chunked: `cNN/seg_*.ts`)
@@ -23,15 +23,15 @@ Kafka worker: `video.uploaded` → claim DB row → download raw → **FFmpeg AB
 7. Update `video_pipeline_steps`: queue=done, process=running→done, ready=done
 
 On failure: `status=failed` + process step `failed`. Duplicate events for `ready` rows are skipped.  
-`POST /uploader/videos/{id}/retry` re-queues `failed` / `processing` / `uploaded` (not `pending`/`ready`). IMS **revives** a failed `ims_encode_batches` row (jobs `failed|running` → `queued`) instead of skipping because the batch already exists.
+`POST /uploader/videos/{id}/retry` re-queues `failed` / `processing` / `uploaded` (not `pending`/`ready`). IMS treats a claim from `uploaded` as a fresh encode (drops `ims_encode_batches`). A **failed** batch is revived only on duplicate Kafka while still `processing`.
 
 ## Layout
 
 | Path | Role |
 |---|---|
 | `app/process_uploaded.rs` | Use case + pipeline step updates |
-| `app/enqueue_chunks.rs` | Probe duration → insert chunk jobs |
-| `app/job_loop.rs` · `run_encode_job.rs` | Replica workers + HLS finalize |
+| `app/enqueue_chunks.rs` | Probe duration → insert encode jobs (always; never FFmpeg) |
+| `app/job_loop.rs` · `assemble_hls.rs` · `run_encode_job.rs` · `run_encode_full.rs` | Replica workers; merge playlists; whole-file ABR vs chunk finalize |
 | `app/ensure_source.rs` | Per-file source download gate |
 | `adapters/postgres_jobs/` | SKIP LOCKED claim / enqueue |
 | `adapters/kafka_consumer.rs` | Consumer loop |
@@ -54,4 +54,4 @@ See [env-and-ports.md](env-and-ports.md): `HLS_SEGMENT_SECS`, `IMS_CHUNK_SECS`, 
 
 K8s: [helm.md](helm.md).
 
-CDN play: `{CDN_BASE_URL}/videos/hls/{file_id}/master.m3u8` via [ems-stubs.md](ems-stubs.md) streaming API.
+CDN play: `{CDN_BASE_URL}/videos/hls/{file_id}/master.m3u8` via [ems-streaming.md](ems-streaming.md).

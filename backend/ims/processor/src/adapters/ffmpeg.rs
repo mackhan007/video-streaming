@@ -9,9 +9,9 @@ use tracing::{debug, info, warn};
 use crate::adapters::ffmpeg_args::{build_rung_args, EncodeOpts};
 use crate::adapters::ffmpeg_abr::{encode_chunked_abr, encode_full_abr};
 use crate::adapters::ffmpeg_plan::should_chunk;
-use crate::adapters::ffmpeg_probe::{ffprobe_bin, probe_duration_secs};
+use crate::adapters::ffmpeg_probe::{ffprobe_bin, probe_duration_secs, source_ladder};
 use crate::adapters::hls_files::collect_hls_tree;
-use crate::adapters::ladder::{LadderRung, DEFAULT_LADDER};
+use crate::adapters::ladder::LadderRung;
 use crate::adapters::master_playlist::write_master;
 use crate::ports::transcoder::{HlsOutput, HlsTranscoder, TranscodeError};
 
@@ -145,20 +145,21 @@ impl HlsTranscoder for FfmpegHls {
             .await
             .context("create out_dir")
             .map_err(TranscodeError::Internal)?;
-        let ladder = DEFAULT_LADDER;
+        let probe = ffprobe_bin(&self.ffmpeg_path);
+        let duration = probe_duration_secs(&probe, input).await.ok();
+        let ladder = source_ladder(&probe, input).await;
         Self::ensure_variant_dirs(out_dir, ladder.len()).await?;
         let master = out_dir.join("master.m3u8");
         let labels: Vec<_> = ladder.iter().map(|r| r.label).collect();
-        let probe = ffprobe_bin(&self.ffmpeg_path);
-        let duration = probe_duration_secs(&probe, input).await.ok();
         let use_chunks = duration
             .map(|d| should_chunk(d, self.chunk_secs))
             .unwrap_or(false);
 
         let with_audio = if use_chunks {
-            encode_chunked_abr(self, input, out_dir, segment_secs, duration.unwrap()).await?
+            encode_chunked_abr(self, input, out_dir, segment_secs, duration.unwrap(), ladder)
+                .await?
         } else {
-            encode_full_abr(self, input, out_dir, segment_secs).await?
+            encode_full_abr(self, input, out_dir, segment_secs, ladder).await?
         };
 
         write_master(out_dir, ladder, with_audio).await?;
