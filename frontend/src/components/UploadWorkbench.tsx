@@ -62,6 +62,7 @@ export function UploadWorkbench() {
             fileId={state.fileId}
             result={state.result}
             error={state.error}
+            liveStatus={pipeline.status?.status}
           />
           <PipelineSteps steps={pipeline.steps} uploadPhase={state.phase} />
           {pipeline.error ? (

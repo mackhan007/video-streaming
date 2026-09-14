@@ -12,16 +12,21 @@ type Props = {
   fileId: string | null;
   result: CompleteUploadResponse | null;
   error: string | null;
+  liveStatus?: string | null;
 };
 
-export function StatusBanner({ phase, fileId, result, error }: Props) {
+export function StatusBanner({ phase, fileId, result, error, liveStatus }: Props) {
   if (phase === "done" && result) {
+    const status = liveStatus ?? result.status;
+    const encoding = status === "processing";
     return (
       <div className={`${bannerOk} animate-rise`} role="status">
         <span aria-hidden>✓</span>
         <span>
-          Your video finished uploading. Status{" "}
-          <strong className="font-semibold">{result.status}</strong>
+          {encoding
+            ? "Upload complete. IMS is encoding ABR HLS. Status "
+            : "Your video finished uploading. Status "}
+          <strong className="font-semibold">{status}</strong>
           <span className="mt-1 block font-mono text-[12px] opacity-80">
             {result.file_id}
           </span>

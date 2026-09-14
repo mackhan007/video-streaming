@@ -8,12 +8,14 @@ React (Vite) UI for EMS upload: create → PUT S3 → complete.
 # Infra first
 docker compose -f docker/docker-compose.yml up -d
 
-# EMS + uploader together
+# EMS + IMS × IMS_WORKERS + uploader
 npm run dev
 # or: ./scripts/dev.sh
 ```
 
 Open http://localhost:5173 — Vite proxies `/uploader` to `http://localhost:8080`.
+
+`IMS_WORKERS` (default 3) extra IMS binaries on `:8088`, `:8089`, … The health chip still probes `:8088`.
 
 Manual (two terminals): EMS `cargo run -p ems-server --bin ems` in `backend/`, then `npm run dev` in `frontend/`.
 
@@ -36,7 +38,7 @@ Env: `.env.example` (`VITE_API_BASE_URL` empty in dev).
 
 Styling: **Tailwind CSS v3** (PostCSS). Theme colors/fonts live in `tailwind.config.js`.
 
-UI shows live **EMS / IMS / CDN** health chips and a **pipeline stepper** fed from `GET /uploader/videos/{id}/pipeline` (`video_pipeline_steps`), including an **ABR row** (360p / 720p / 1080p) with **elapsed / took** per step (`started_at`–`finished_at`), and HLS playback when the ready step is done.
+UI shows live **EMS / IMS / CDN** health chips and a **pipeline stepper** fed from `GET /uploader/videos/{id}/pipeline` (`video_pipeline_steps`), including an **ABR row** (360p / 720p / 1080p) with **% complete** (`progress_pct`, `chunks_done` / `chunks_total`) and **elapsed / took** per step (`started_at`–`finished_at`), and HLS playback when the ready step is done. After upload, the banner uses live DB status (`processing` while IMS encodes), not the frozen complete-upload payload.
 
 Allowed types: mp4 / webm / quicktime / matroska (same as EMS). Header sniff (`src/upload/assertVideoFile.ts`) accepts ISO BMFF `ftyp` **and** `mdat`-first files. A `.mp4` that is actually a ZIP of stored videos (`src/upload/unwrapZipVideo.ts`) is unwrapped (name-matched or single entry); multi-video archives ask the user to unzip.
 

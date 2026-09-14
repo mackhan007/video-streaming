@@ -59,6 +59,9 @@ export type PipelineStep = {
   error: string | null;
   started_at: string | null;
   finished_at: string | null;
+  progress_pct?: number | null;
+  chunks_done?: number | null;
+  chunks_total?: number | null;
 };
 
 export type PipelineResponse = {

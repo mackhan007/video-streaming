@@ -95,6 +95,28 @@ function StepCard(props: {
         {props.meta.hint}
       </p>
       <p className="m-0 mt-1 truncate text-[12px] text-ink-muted">{caption}</p>
+      {row?.progress_pct != null && row.chunks_total ? (
+        <p className="m-0 mt-2 tabular-nums text-[18px] font-extrabold tracking-tight text-ink">
+          {row.progress_pct}%
+          <span className="ml-2 text-[12px] font-semibold text-ink-muted">
+            {row.chunks_done}/{row.chunks_total} chunks
+          </span>
+        </p>
+      ) : null}
+      {row?.progress_pct != null && row.chunks_total ? (
+        <div
+          className="mt-2 h-1.5 overflow-hidden rounded-full bg-line"
+          role="progressbar"
+          aria-valuenow={row.progress_pct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        >
+          <div
+            className="h-full rounded-full bg-accent transition-[width]"
+            style={{ width: `${row.progress_pct}%` }}
+          />
+        </div>
+      ) : null}
       {elapsed ? (
         <p className="m-0 mt-1 tabular-nums text-[12px] font-semibold text-ink">
           {st === "active" ? elapsed : `took ${elapsed}`}
