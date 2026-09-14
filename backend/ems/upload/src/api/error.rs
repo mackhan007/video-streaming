@@ -4,7 +4,10 @@ use axum::Json;
 use serde_json::json;
 use tracing::{error, warn};
 
-use crate::app::{CompleteUploadError, GetUploadUrlError};
+use crate::app::{
+    AbortUploadError, CompleteUploadError, GetUploadUrlError, SoftDeleteVideoError,
+};
+use crate::app::validate_upload::UploadValidationError;
 
 pub struct ApiError {
     status: StatusCode,
@@ -27,22 +30,22 @@ impl IntoResponse for ApiError {
         } else {
             warn!(status = %self.status, message = %self.message, "api client error");
         }
-        (
-            self.status,
-            Json(json!({ "error": self.message })),
-        )
-            .into_response()
+        (self.status, Json(json!({ "error": self.message }))).into_response()
     }
 }
 
 impl From<GetUploadUrlError> for ApiError {
     fn from(value: GetUploadUrlError) -> Self {
         match value {
-            GetUploadUrlError::InvalidFileSize => {
-                Self::new(StatusCode::BAD_REQUEST, value.to_string())
-            }
+            GetUploadUrlError::Validation(v) => Self::from(v),
             other => Self::new(StatusCode::SERVICE_UNAVAILABLE, other.to_string()),
         }
+    }
+}
+
+impl From<UploadValidationError> for ApiError {
+    fn from(value: UploadValidationError) -> Self {
+        Self::new(StatusCode::BAD_REQUEST, value.to_string())
     }
 }
 
@@ -50,6 +53,35 @@ impl From<CompleteUploadError> for ApiError {
     fn from(value: CompleteUploadError) -> Self {
         match value {
             CompleteUploadError::NotFound(_) | CompleteUploadError::ObjectMissing(_) => {
+                Self::new(StatusCode::NOT_FOUND, value.to_string())
+            }
+            CompleteUploadError::Deleted(_) => Self::new(StatusCode::GONE, value.to_string()),
+            CompleteUploadError::Failed(_) => Self::new(StatusCode::CONFLICT, value.to_string()),
+            CompleteUploadError::SizeMismatch { .. } => {
+                Self::new(StatusCode::CONFLICT, value.to_string())
+            }
+            other => Self::new(StatusCode::SERVICE_UNAVAILABLE, other.to_string()),
+        }
+    }
+}
+
+impl From<AbortUploadError> for ApiError {
+    fn from(value: AbortUploadError) -> Self {
+        match value {
+            AbortUploadError::NotFound(_) => Self::new(StatusCode::NOT_FOUND, value.to_string()),
+            AbortUploadError::Deleted(_) => Self::new(StatusCode::GONE, value.to_string()),
+            AbortUploadError::NotAbortable(_, _) => {
+                Self::new(StatusCode::CONFLICT, value.to_string())
+            }
+            other => Self::new(StatusCode::SERVICE_UNAVAILABLE, other.to_string()),
+        }
+    }
+}
+
+impl From<SoftDeleteVideoError> for ApiError {
+    fn from(value: SoftDeleteVideoError) -> Self {
+        match value {
+            SoftDeleteVideoError::NotFound(_) => {
                 Self::new(StatusCode::NOT_FOUND, value.to_string())
             }
             other => Self::new(StatusCode::SERVICE_UNAVAILABLE, other.to_string()),

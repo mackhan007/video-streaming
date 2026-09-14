@@ -15,8 +15,18 @@ pub struct CompleteUploadOutput {
 pub enum CompleteUploadError {
     #[error("video not found: {0}")]
     NotFound(VideoId),
+    #[error("video soft-deleted: {0}")]
+    Deleted(VideoId),
+    #[error("upload aborted or failed: {0}")]
+    Failed(VideoId),
     #[error("object not found in storage for {0}")]
     ObjectMissing(VideoId),
+    #[error("object size mismatch for {id}: expected {expected}, got {actual}")]
+    SizeMismatch {
+        id: VideoId,
+        expected: u64,
+        actual: u64,
+    },
     #[error(transparent)]
     Videos(#[from] crate::ports::videos::VideoRepoError),
     #[error(transparent)]
@@ -54,35 +64,27 @@ impl<'a> CompleteUpload<'a> {
         file_id: VideoId,
     ) -> Result<CompleteUploadOutput, CompleteUploadError> {
         debug!(%file_id, "complete upload starting");
-
         let video = match self.videos.get(file_id).await {
             Ok(v) => v,
             Err(crate::ports::videos::VideoRepoError::NotFound(id)) => {
-                warn!(%file_id, "complete upload: video not found");
                 return Err(CompleteUploadError::NotFound(id));
             }
-            Err(e) => {
-                error!(error = %e, %file_id, "complete upload: video lookup failed");
-                return Err(e.into());
-            }
+            Err(e) => return Err(e.into()),
         };
 
-        // Idempotent: already past pending → 200 without re-publishing.
+        if video.is_deleted() {
+            return Err(CompleteUploadError::Deleted(file_id));
+        }
+
+        if video.status == VideoStatus::Failed {
+            return Err(CompleteUploadError::Failed(file_id));
+        }
+
         if video.status.is_uploaded_or_beyond() {
-            info!(%file_id, status = %video.status, "upload already complete");
-            if let Err(e) = self.sessions.delete(file_id).await {
-                warn!(error = %e, %file_id, "session cleanup failed (ignored)");
-            }
-            return Ok(CompleteUploadOutput {
-                file_id,
-                status: video.status,
-                object_key: video.object_key,
-            });
+            return self.finish_already_uploaded(video).await;
         }
 
         let session = self.sessions.get(file_id).await?;
-        debug!(%file_id, has_session = session.is_some(), "loaded upload session");
-
         let upload_id = session
             .as_ref()
             .and_then(|s| s.upload_id.clone())
@@ -100,57 +102,97 @@ impl<'a> CompleteUpload<'a> {
             .unwrap_or_else(|| video.object_key.clone());
 
         if mode == UploadMode::Multipart {
-            let Some(uid) = upload_id.as_deref() else {
-                warn!(%file_id, "multipart complete missing upload_id");
-                return Err(CompleteUploadError::ObjectMissing(file_id));
-            };
-            if self.objects.head_object(&object_key).await?.is_none() {
-                let parts = self.objects.list_parts(&object_key, uid).await?;
-                debug!(%file_id, parts = parts.len(), "listed multipart parts");
-                if parts.is_empty() {
-                    warn!(%file_id, %object_key, "no multipart parts found");
-                    return Err(CompleteUploadError::ObjectMissing(file_id));
-                }
-                info!(%file_id, parts = parts.len(), "completing multipart upload");
-                self.objects
-                    .complete_multipart_upload(&object_key, uid, parts)
-                    .await?;
-            } else {
-                debug!(%file_id, "object already present; skip CompleteMultipartUpload");
-            }
+            self.ensure_multipart_assembled(file_id, &object_key, upload_id.as_deref())
+                .await?;
         }
 
-        if self.objects.head_object(&object_key).await?.is_none() {
-            warn!(%file_id, %object_key, "object missing in s3 after upload");
-            return Err(CompleteUploadError::ObjectMissing(file_id));
+        let len = self
+            .objects
+            .head_object(&object_key)
+            .await?
+            .ok_or(CompleteUploadError::ObjectMissing(file_id))?;
+        let expected = video.file_size as u64;
+        if len != expected {
+            warn!(%file_id, expected, actual = len, "object size mismatch");
+            return Err(CompleteUploadError::SizeMismatch {
+                id: file_id,
+                expected,
+                actual: len,
+            });
         }
-        debug!(%file_id, %object_key, "s3 object present");
 
         let updated = self.videos.mark_uploaded(file_id).await?;
         info!(%file_id, status = %updated.status, "video marked uploaded");
+        self.publish_if_needed(file_id, &object_key, updated.event_published)
+            .await?;
 
-        if video.status == VideoStatus::Pending {
-            let event = VideoUploaded {
-                file_id,
-                object_key: object_key.clone(),
-            };
-            if let Err(e) = self.events.publish_uploaded(&event).await {
-                error!(error = %e, %file_id, "kafka publish failed after mark_uploaded");
-                return Err(e.into());
-            }
-            info!(%file_id, "video.uploaded published");
-        }
-
-        if let Err(e) = self.sessions.delete(file_id).await {
-            warn!(error = %e, %file_id, "session cleanup failed (ignored)");
-        } else {
-            debug!(%file_id, "upload session deleted");
-        }
-
+        let _ = self.sessions.delete(file_id).await;
         Ok(CompleteUploadOutput {
             file_id,
             status: updated.status,
             object_key,
         })
+    }
+
+    async fn finish_already_uploaded(
+        &self,
+        video: crate::domain::Video,
+    ) -> Result<CompleteUploadOutput, CompleteUploadError> {
+        let file_id = video.id;
+        info!(%file_id, status = %video.status, "upload already complete");
+        self.publish_if_needed(file_id, &video.object_key, video.event_published)
+            .await?;
+        let _ = self.sessions.delete(file_id).await;
+        Ok(CompleteUploadOutput {
+            file_id,
+            status: video.status,
+            object_key: video.object_key,
+        })
+    }
+
+    async fn ensure_multipart_assembled(
+        &self,
+        file_id: VideoId,
+        object_key: &str,
+        upload_id: Option<&str>,
+    ) -> Result<(), CompleteUploadError> {
+        if self.objects.head_object(object_key).await?.is_some() {
+            return Ok(());
+        }
+        let Some(uid) = upload_id else {
+            return Err(CompleteUploadError::ObjectMissing(file_id));
+        };
+        let parts = self.objects.list_parts(object_key, uid).await?;
+        if parts.is_empty() {
+            return Err(CompleteUploadError::ObjectMissing(file_id));
+        }
+        info!(%file_id, parts = parts.len(), "completing multipart upload");
+        self.objects
+            .complete_multipart_upload(object_key, uid, parts)
+            .await?;
+        Ok(())
+    }
+
+    async fn publish_if_needed(
+        &self,
+        file_id: VideoId,
+        object_key: &str,
+        already: bool,
+    ) -> Result<(), CompleteUploadError> {
+        if already {
+            debug!(%file_id, "kafka event already published");
+            return Ok(());
+        }
+        let event = VideoUploaded {
+            file_id,
+            object_key: object_key.to_string(),
+        };
+        if let Err(e) = self.events.publish_uploaded(&event).await {
+            error!(error = %e, %file_id, "kafka publish failed");
+            return Err(e.into());
+        }
+        self.videos.mark_event_published(file_id).await?;
+        info!(%file_id, "video.uploaded published");
+        Ok(())
     }
 }

@@ -9,6 +9,8 @@ Applied automatically via sqlx in `PostgresVideoRepository::migrate` on EMS/uplo
 |---|---|
 | `20240910000001_create_videos.sql` | enum `video_status`, table `videos`, index `(status, created_at DESC)` |
 | `20240910000002_videos_hot_path_indexes.sql` | ready partial, `(status, updated_at)`, unique `object_key`, partial `playback_path` |
+| `20240914000003_event_published.sql` | `event_published` for Kafka at-least-once |
+| `20240914000004_soft_delete.sql` | `deleted_at` + partial index for live rows |
 
 ## `video_status`
 

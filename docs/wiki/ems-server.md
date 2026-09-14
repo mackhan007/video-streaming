@@ -16,7 +16,7 @@ Listens on **`EMS_HTTP_PORT`** (default **8080**). Merges upload + listing + str
 |---|---|---|
 | `GET` | `/health` | `ems/server/src/lib.rs` |
 | `GET` | `/ready` | same → `ems_upload::check_ready` |
-| `POST` | `/uploader/*` | `ems_upload::uploader_router` |
+| `POST`/`DELETE` | `/uploader/videos…` | REST upload resource (create/complete/abort/delete) |
 | `GET` | `/lister/*` | `ems_listing::router` |
 | `GET/POST` | `/streamer/*` | `ems_streaming::router` |
 

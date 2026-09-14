@@ -121,3 +121,25 @@ pub(crate) async fn complete_multipart_upload(
         })?;
     Ok(())
 }
+
+pub(crate) async fn abort_multipart_upload(
+    store: &S3ObjectStore,
+    object_key: &str,
+    upload_id: &str,
+) -> Result<(), ObjectStoreError> {
+    info!(%object_key, %upload_id, "AbortMultipartUpload");
+    store
+        .client
+        .abort_multipart_upload()
+        .bucket(&store.bucket)
+        .key(object_key)
+        .upload_id(upload_id)
+        .send()
+        .await
+        .context("AbortMultipartUpload")
+        .map_err(|e| {
+            error!(error = %e, %object_key, "AbortMultipartUpload failed");
+            ObjectStoreError::Internal(e)
+        })?;
+    Ok(())
+}

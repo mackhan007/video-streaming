@@ -99,8 +99,10 @@ cd backend && cargo run -p ems-server --bin ems
 |---|---|
 | `GET /health` | liveness |
 | `GET /ready` | Postgres + Redis + S3 |
-| `POST /uploader/get-upload-url` | live |
-| `POST /uploader/upload-completed` | live |
+| `POST /uploader/videos` | live — **201** create |
+| `POST /uploader/videos/{id}/complete` | live |
+| `POST /uploader/videos/{id}/abort` | live |
+| `DELETE /uploader/videos/{id}` | live (soft delete) |
 | `GET /lister/videos` | stub `501` |
 | `GET /streamer/stream` | stub `501` |
 | `POST /streamer/save-user-state` | stub `501` |
@@ -111,13 +113,13 @@ Default port: **`EMS_HTTP_PORT=8080`**. Logging via `RUST_LOG` (see `.env.templa
 
 ```bash
 curl -s localhost:8080/health
-curl -s -X POST localhost:8080/uploader/get-upload-url \
+curl -si -X POST localhost:8080/uploader/videos \
   -H 'content-type: application/json' \
   -d '{"file_size":1024,"content_type":"video/mp4"}'
 # PUT each returned parts[].url to LocalStack, then:
-curl -s -X POST localhost:8080/uploader/upload-completed \
-  -H 'content-type: application/json' \
-  -d '{"file_id":"<uuid>"}'
+curl -s -X POST localhost:8080/uploader/videos/<uuid>/complete
+# soft-delete example:
+# curl -s -X DELETE localhost:8080/uploader/videos/<uuid>
 ```
 
 ### Standalone bins (optional)

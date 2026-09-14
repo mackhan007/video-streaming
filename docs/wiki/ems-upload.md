@@ -2,46 +2,45 @@
 
 Implemented. Used by gateway and standalone `ems-upload`.
 
+## REST surface
+
+Resource: **`/uploader/videos`**
+
+| Method | Path | Status | Action |
+|---|---|---|---|
+| `POST` | `/uploader/videos` | **201** + `Location` | create upload / presign |
+| `POST` | `/uploader/videos/{file_id}/complete` | 200 | verify S3 + mark uploaded + Kafka |
+| `POST` | `/uploader/videos/{file_id}/abort` | 200 | cancel pending |
+| `DELETE` | `/uploader/videos/{file_id}` | 200 | soft delete (`deleted_at`) |
+
+`file_id` is in the path (not the body) for complete / abort / delete.
+
 ## Key files
 
 | Concern | Path |
 |---|---|
-| Composition / `build_state` | `backend/ems/upload/src/lib.rs` |
-| Config | `backend/ems/upload/src/config.rs` |
-| Routes + `AppState` | `backend/ems/upload/src/api/routes.rs` |
+| Routes | `backend/ems/upload/src/api/routes.rs` |
+| Handlers | `backend/ems/upload/src/api/handlers.rs` |
 | DTOs | `backend/ems/upload/src/api/dto.rs` |
-| Errors | `backend/ems/upload/src/api/error.rs` |
-| Use case: get URL | `backend/ems/upload/src/app/get_upload_url.rs` |
-| Use case: complete | `backend/ems/upload/src/app/complete_upload.rs` |
-| Domain video / session | `backend/ems/upload/src/domain/` |
-| Ports | `backend/ems/upload/src/ports/` |
-| Postgres | `backend/ems/upload/src/adapters/postgres.rs` |
-| Redis | `backend/ems/upload/src/adapters/redis.rs` |
-| S3 | `backend/ems/upload/src/adapters/s3/` (`mod`, `presign`, `multipart`, `head`) |
-| Kafka | `backend/ems/upload/src/adapters/kafka.rs` |
-| Migrations | `backend/ems/upload/migrations/` |
+| Use cases | `app/get_upload_url.rs`, `complete_upload.rs`, `abort_upload.rs`, `soft_delete_video.rs` |
 
-## HTTP API
+## Limits (env)
 
-| Method | Path | Body | Result |
-|---|---|---|---|
-| `POST` | `/uploader/get-upload-url` | `{ file_size, title?, content_type? }` | `file_id`, `object_key`, `mode`, `parts[]` |
-| `POST` | `/uploader/upload-completed` | `{ file_id }` | `{ file_id, status, object_key }` |
-
-Multipart when `file_size > UPLOAD_PART_SIZE_BYTES` (default 16 MiB).  
-Complete: HeadObject (+ complete multipart if needed) → `uploaded` → Kafka `video.uploaded` (idempotent if already past pending).
-
-## Object key
-
-`raw/{file_id}/source` (see `domain/video.rs`).
+| Var | Default |
+|---|---|
+| `MAX_UPLOAD_BYTES` | 5 GiB |
+| `ALLOWED_CONTENT_TYPES` | mp4/webm/quicktime/matroska |
+| `MAX_TITLE_CHARS` | 200 |
+| `UPLOAD_PART_SIZE_BYTES` | 16 MiB (S3 max 10k parts) |
 
 ## Dual S3 endpoints
 
 | Env | Role |
 |---|---|
-| `AWS_ENDPOINT_URL` | SDK / HeadObject (Docker-reachable) |
-| `S3_PUBLIC_ENDPOINT` | Host embedded in presigned URLs (browser/curl) |
+| `AWS_ENDPOINT_URL` | SDK / HeadObject |
+| `S3_PUBLIC_ENDPOINT` | Presigned URL host |
 
 ## Standalone
 
-`cargo run -p ems-upload --bin ems-upload` → `HTTP_PORT` (8085) includes `/health` `/ready`.
+`cargo run -p ems-upload --bin ems-upload` → `HTTP_PORT` (8085).  
+Tests: `cargo test -p ems-upload`.

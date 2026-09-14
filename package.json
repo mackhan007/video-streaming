@@ -1,0 +1,14 @@
+{
+  "name": "streaming-service-v2",
+  "private": true,
+  "description": "Tooling only — commitlint + husky (Rust app lives in backend/)",
+  "scripts": {
+    "prepare": "husky",
+    "commitlint": "commitlint --edit"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
+    "husky": "^9.1.7"
+  }
+}

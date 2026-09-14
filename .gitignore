@@ -2,3 +2,4 @@
 volume/
 .env
 .cursor
+node_modules/

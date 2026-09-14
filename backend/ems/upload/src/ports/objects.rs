@@ -52,6 +52,12 @@ pub trait ObjectStore: Send + Sync {
         parts: Vec<CompletedPart>,
     ) -> Result<(), ObjectStoreError>;
 
+    async fn abort_multipart_upload(
+        &self,
+        object_key: &str,
+        upload_id: &str,
+    ) -> Result<(), ObjectStoreError>;
+
     /// `Ok(None)` when the object does not exist (Liskov: never panic on miss).
     async fn head_object(&self, object_key: &str) -> Result<Option<u64>, ObjectStoreError>;
 

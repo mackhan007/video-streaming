@@ -6,7 +6,8 @@ VOD platform: upload a video, process it into multiple qualities, list it, then 
 
 Diagrams: [HLD](diagrams/HLD.png) · [LLD](diagrams/LLD.png)  
 Local runbook: [docs/local-setup.md](docs/local-setup.md)  
-**Code wiki (agent/human map):** [docs/wiki/INDEX.md](docs/wiki/INDEX.md)
+**Code wiki (agent/human map):** [docs/wiki/INDEX.md](docs/wiki/INDEX.md)  
+Commit messages: [commitlint](https://commitlint.js.org/) — [docs/commitlint.md](docs/commitlint.md)
 
 ---
 
@@ -53,7 +54,7 @@ cd backend && cargo run -p ems-server --bin ems
 
 ```bash
 curl -s localhost:8080/health
-curl -s -X POST localhost:8080/uploader/get-upload-url \
+curl -s -X POST localhost:8080/uploader/videos \
   -H 'content-type: application/json' \
   -d '{"file_size":1024,"content_type":"video/mp4"}'
 ```
@@ -117,8 +118,10 @@ List / Play (planned)
 |---|---|---|
 | `GET` | `/health` | Live |
 | `GET` | `/ready` | Live (Postgres + Redis + S3) |
-| `POST` | `/uploader/get-upload-url` | Live |
-| `POST` | `/uploader/upload-completed` | Live |
+| `POST` | `/uploader/videos` | Live — create upload (**201**) |
+| `POST` | `/uploader/videos/{file_id}/complete` | Live |
+| `POST` | `/uploader/videos/{file_id}/abort` | Live |
+| `DELETE` | `/uploader/videos/{file_id}` | Live (soft delete) |
 | `GET` | `/lister/videos?limit=&seen=` | Stub `501` |
 | `GET` | `/streamer/stream?file_id=` | Stub `501` |
 | `POST` | `/streamer/save-user-state` | Stub `501` |
@@ -127,7 +130,7 @@ Standalone bins (optional): `ems-upload` `:8085`, `ems-listing` `:8086`, `ems-st
 
 ### Upload (implemented)
 
-**`POST /uploader/get-upload-url`**
+**`POST /uploader/videos`** → `201 Created` + `Location: /uploader/videos/{file_id}`
 
 ```json
 { "file_size": 104857600, "title": "optional", "content_type": "video/mp4" }
@@ -135,14 +138,13 @@ Standalone bins (optional): `ems-upload` `:8085`, `ems-listing` `:8086`, `ems-st
 
 Creates `file_id`, a `pending` Postgres row, a Redis session, and returns presigned URL(s). Uses **multipart** when `file_size` exceeds `UPLOAD_PART_SIZE_BYTES` (default 16 MiB).
 
-**`POST /uploader/upload-completed`**
+**`POST /uploader/videos/{file_id}/complete`**
 
-```json
-{ "file_id": "uuid" }
-```
+`HeadObject` (and multipart complete when needed). If the object exists: status `uploaded`, publish Kafka `video.uploaded`. Idempotent if already past `pending`.
 
-`HeadObject` (and multipart complete when needed). If the object exists: status `uploaded`, publish Kafka `video.uploaded` `{ file_id, object_key }`. Idempotent if already past `pending`.
+**`POST /uploader/videos/{file_id}/abort`** — cancel a `pending` upload (multipart abort + `failed`).
 
+**`DELETE /uploader/videos/{file_id}`** — soft delete (`deleted_at`); S3 objects retained.
 ### Backend layout (hexagonal)
 
 ```

@@ -13,6 +13,8 @@ pub struct Video {
     pub upload_id: Option<String>,
     pub part_size: Option<i64>,
     pub playback_path: Option<String>,
+    pub event_published: bool,
+    pub deleted_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -38,9 +40,15 @@ impl Video {
             upload_id,
             part_size,
             playback_path: None,
+            event_published: false,
+            deleted_at: None,
             created_at: now,
             updated_at: now,
         }
+    }
+
+    pub fn is_deleted(&self) -> bool {
+        self.deleted_at.is_some()
     }
 
     pub fn raw_object_key(id: VideoId) -> String {

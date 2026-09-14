@@ -18,6 +18,7 @@ Human overview: [README.md](../../README.md) · Runbook: [local-setup.md](../loc
 | Env vars & ports                         | [env-and-ports.md](env-and-ports.md) |
 | Docker / LocalStack / nginx              | [infra.md](infra.md)                 |
 | Coding conventions (SOLID, 200 lines, …) | [conventions.md](conventions.md)     |
+| Commit message linting ([commitlint](https://commitlint.js.org/)) | [../commitlint.md](../commitlint.md) |
 
 ## Route by path prefix
 

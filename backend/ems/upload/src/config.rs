@@ -2,6 +2,10 @@
 
 use anyhow::{anyhow, Context, Result};
 
+/// Defaults: 5 GiB max, S3 multipart hard cap 10_000 parts, video MIME allowlist.
+const DEFAULT_MAX_UPLOAD: &str = "5368709120";
+const DEFAULT_CONTENT_TYPES: &str = "video/mp4,video/webm,video/quicktime,video/x-matroska";
+
 #[derive(Debug, Clone)]
 pub struct Config {
     pub http_port: u16,
@@ -10,19 +14,27 @@ pub struct Config {
     pub kafka_bootstrap_servers: String,
     pub kafka_topic: String,
     pub aws_endpoint_url: String,
-    /// Host-reachable endpoint embedded into presigned URLs (browser / curl).
     pub s3_public_endpoint: String,
     pub aws_region: String,
     pub aws_access_key_id: String,
     pub aws_secret_access_key: String,
     pub s3_bucket: String,
     pub upload_part_size_bytes: u64,
+    pub max_upload_bytes: u64,
+    pub max_title_chars: usize,
+    pub allowed_content_types: Vec<String>,
     pub presign_ttl_secs: u64,
     pub session_ttl_secs: u64,
 }
 
 impl Config {
     pub fn from_env() -> Result<Self> {
+        let allowed_content_types = env_or("ALLOWED_CONTENT_TYPES", DEFAULT_CONTENT_TYPES)
+            .split(',')
+            .map(|s| s.trim().to_ascii_lowercase())
+            .filter(|s| !s.is_empty())
+            .collect();
+
         Ok(Self {
             http_port: env_or("HTTP_PORT", "8085").parse().context("HTTP_PORT")?,
             database_url: required("DATABASE_URL")?,
@@ -41,6 +53,13 @@ impl Config {
             upload_part_size_bytes: env_or("UPLOAD_PART_SIZE_BYTES", "16777216")
                 .parse()
                 .context("UPLOAD_PART_SIZE_BYTES")?,
+            max_upload_bytes: env_or("MAX_UPLOAD_BYTES", DEFAULT_MAX_UPLOAD)
+                .parse()
+                .context("MAX_UPLOAD_BYTES")?,
+            max_title_chars: env_or("MAX_TITLE_CHARS", "200")
+                .parse()
+                .context("MAX_TITLE_CHARS")?,
+            allowed_content_types,
             presign_ttl_secs: env_or("PRESIGN_TTL_SECS", "3600")
                 .parse()
                 .context("PRESIGN_TTL_SECS")?,

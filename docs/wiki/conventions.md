@@ -10,6 +10,8 @@ Project skills live under `.cursor/skills/` — follow them on every change.
 | `design-patterns` | Ports/adapters, repository, use case, DTO, composition root |
 | `million-tps` | Hot-path efficiency + **indexes with every new query** |
 
+Commit messages: [commitlint](https://commitlint.js.org/) — see [../commitlint.md](../commitlint.md).
+
 ## Patterns in this repo
 
 - Thin HTTP handlers; business logic in `app/`

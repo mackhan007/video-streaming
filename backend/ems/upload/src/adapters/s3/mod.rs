@@ -111,6 +111,14 @@ impl ObjectStore for S3ObjectStore {
         multipart::complete_multipart_upload(self, object_key, upload_id, parts).await
     }
 
+    async fn abort_multipart_upload(
+        &self,
+        object_key: &str,
+        upload_id: &str,
+    ) -> Result<(), ObjectStoreError> {
+        multipart::abort_multipart_upload(self, object_key, upload_id).await
+    }
+
     async fn head_object(&self, object_key: &str) -> Result<Option<u64>, ObjectStoreError> {
         head::head_object(self, object_key).await
     }

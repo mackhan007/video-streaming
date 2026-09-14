@@ -26,6 +26,9 @@ Config parse: `backend/ems/upload/src/config.rs`
 | `S3_BUCKET` | `videos` |
 | `AWS_ACCESS_KEY_ID` / `SECRET` | `test` / `test` |
 | `AWS_DEFAULT_REGION` | `us-east-1` |
+| `MAX_UPLOAD_BYTES` | `5368709120` (5 GiB) |
+| `ALLOWED_CONTENT_TYPES` | mp4/webm/quicktime/matroska |
+| `MAX_TITLE_CHARS` | `200` |
 | `UPLOAD_PART_SIZE_BYTES` | `16777216` |
 | `PRESIGN_TTL_SECS` | `3600` |
 | `SESSION_TTL_SECS` | `86400` |

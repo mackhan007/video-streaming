@@ -11,6 +11,11 @@ pub mod domain;
 pub mod http;
 pub mod ports;
 
+#[cfg(test)]
+mod fakes;
+#[cfg(test)]
+mod use_case_tests;
+
 use std::sync::Arc;
 
 use tracing::{debug, error, info};
@@ -20,6 +25,7 @@ use crate::adapters::postgres::PostgresVideoRepository;
 use crate::adapters::redis::RedisSessionStore;
 use crate::adapters::s3::S3ObjectStore;
 use crate::api::routes::{self, AppState};
+use crate::app::UploadLimits;
 use crate::config::Config;
 use crate::http::with_http_layers;
 
@@ -33,6 +39,7 @@ pub async fn build_state(config: &Config) -> anyhow::Result<AppState> {
         aws_endpoint = %config.aws_endpoint_url,
         s3_public = %config.s3_public_endpoint,
         part_size = config.upload_part_size_bytes,
+        max_upload = config.max_upload_bytes,
         "wiring upload adapters"
     );
 
@@ -101,8 +108,13 @@ pub async fn build_state(config: &Config) -> anyhow::Result<AppState> {
         objects: Arc::new(objects),
         sessions: Arc::new(sessions),
         events: Arc::new(events),
-        part_size: config.upload_part_size_bytes,
-        presign_ttl_secs: config.presign_ttl_secs,
+        limits: UploadLimits {
+            part_size: config.upload_part_size_bytes,
+            max_upload_bytes: config.max_upload_bytes,
+            max_title_chars: config.max_title_chars,
+            allowed_content_types: config.allowed_content_types.clone(),
+            presign_ttl_secs: config.presign_ttl_secs,
+        },
     })
 }
 
