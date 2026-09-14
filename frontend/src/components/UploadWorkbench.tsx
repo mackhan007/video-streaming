@@ -1,9 +1,13 @@
 import { ActionBar } from "./ActionBar";
 import { FileField } from "./FileField";
+import { PipelineSteps } from "./PipelineSteps";
 import { ProgressMeter } from "./ProgressMeter";
 import { StatusBanner } from "./StatusBanner";
 import { TitleField } from "./TitleField";
+import { VideoPlayer } from "./VideoPlayer";
+import { usePipeline } from "../hooks/usePipeline";
 import { useVideoUpload } from "../hooks/useVideoUpload";
+import { btnPrimary } from "../ui/classes";
 
 const LOCKED = new Set(["requesting", "transferring", "paused", "completing"]);
 
@@ -11,6 +15,7 @@ export function UploadWorkbench() {
   const { state, setTitle, setFile, start, pause, resume, abort, reset } =
     useVideoUpload();
   const locked = LOCKED.has(state.phase);
+  const pipeline = usePipeline(state.fileId);
 
   return (
     <section
@@ -25,8 +30,8 @@ export function UploadWorkbench() {
           Upload videos
         </h1>
         <p className="mt-2 max-w-xl text-[15px] text-ink-muted">
-          Drop a file to start. Pause anytime — resume continues where you left
-          off.
+          Watch each stage live: upload, Kafka queue, IMS processing, ready, then
+          stream from the CDN.
         </p>
       </div>
 
@@ -58,6 +63,37 @@ export function UploadWorkbench() {
             result={state.result}
             error={state.error}
           />
+          <PipelineSteps steps={pipeline.steps} uploadPhase={state.phase} />
+          {pipeline.error ? (
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <p className="m-0 text-[13px] text-danger">{pipeline.error}</p>
+              {pipeline.failed ? (
+                <button
+                  type="button"
+                  className={btnPrimary}
+                  disabled={pipeline.retrying}
+                  onClick={() => void pipeline.retry()}
+                >
+                  {pipeline.retrying ? "Retrying…" : "Retry processing"}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          {pipeline.status ? (
+            <p className="mt-3 text-[13px] text-ink-muted">
+              DB status:{" "}
+              <strong className="text-ink">{pipeline.status.status}</strong>
+              {pipeline.status.playback_path
+                ? ` · ${pipeline.status.playback_path}`
+                : ""}
+            </p>
+          ) : null}
+          {pipeline.stream ? (
+            <VideoPlayer
+              src={pipeline.stream.master_playlist_url}
+              title={pipeline.status?.title}
+            />
+          ) : null}
         </div>
       </div>
     </section>

@@ -1,3 +1,5 @@
+import { ServiceHealthBar } from "./ServiceHealthBar";
+
 type Props = {
   brand: string;
 };
@@ -19,9 +21,9 @@ export function TopBar({ brand }: Props) {
             {brand}
           </p>
         </div>
-        <span className="ml-auto hidden text-[13px] font-medium text-ink-soft sm:inline">
-          Studio
-        </span>
+        <div className="ml-auto">
+          <ServiceHealthBar />
+        </div>
       </div>
     </header>
   );
