@@ -35,6 +35,11 @@ set -a
 source "${_ENV_FILE}"
 set +a
 
+# File logs: logs/<binary>.log under the repo (override with LOG_DIR / LOG_NAME).
+if [ -z "${LOG_DIR:-}" ]; then
+  export LOG_DIR="${_REPO_ROOT}/logs"
+fi
+
 case "${AWS_CONFIG_FILE:-}" in
   /*) ;;
   *) AWS_CONFIG_FILE="${_REPO_ROOT}/${AWS_CONFIG_FILE}" ;;

@@ -92,10 +92,12 @@ Presigned browser/curl uploads must use **`S3_PUBLIC_ENDPOINT=http://localhost:4
 With infra up:
 
 ```bash
-npm run dev          # EMS :8080 + Vite :5173 (scripts/dev.sh)
+npm run dev          # EMS :8080 + IMS :8088 + Vite :5173 (scripts/dev.sh)
 ```
 
-Or only the UI (EMS already running):
+Requires **ffmpeg** on `PATH` (or `FFMPEG_PATH`) for HLS chunking.
+
+Or only the UI (EMS + IMS already running):
 
 ```bash
 cd frontend && npm install && npm run dev
@@ -110,6 +112,8 @@ Do **not** use a project-local `.cargo-cache`.
 
 ```bash
 cd backend && cargo run -p ems-server --bin ems
+# separate terminal — IMS worker
+cd backend && cargo run -p ims-processor --bin ims-processor
 ```
 
 | Path | Behavior |
@@ -121,7 +125,7 @@ cd backend && cargo run -p ems-server --bin ems
 | `POST /uploader/videos/{id}/abort` | live |
 | `DELETE /uploader/videos/{id}` | live (soft delete) |
 | `GET /lister/videos` | stub `501` |
-| `GET /streamer/stream` | stub `501` |
+| `GET /streamer/stream?file_id=` | live — CDN master URL when `ready` |
 | `POST /streamer/save-user-state` | stub `501` |
 
 Default port: **`EMS_HTTP_PORT=8080`**. Logging via `RUST_LOG` (see `.env.template`).

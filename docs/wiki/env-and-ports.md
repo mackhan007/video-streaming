@@ -10,8 +10,8 @@ Config parse: `backend/ems/upload/src/config.rs`
 | `EMS_HTTP_PORT` | 8080 | `ems` gateway |
 | `HTTP_PORT` | 8085 | `ems-upload` alone |
 | `LISTING_HTTP_PORT` | 8086 | listing stub |
-| `STREAMING_HTTP_PORT` | 8087 | streaming stub |
-| `PROCESSOR_HTTP_PORT` | 8088 | IMS stub |
+| `STREAMING_HTTP_PORT` | 8087 | streaming |
+| `PROCESSOR_HTTP_PORT` | 8088 | IMS processor |
 
 ## Required / common
 
@@ -21,6 +21,7 @@ Config parse: `backend/ems/upload/src/config.rs`
 | `REDIS_URL` | `redis://localhost:6379` |
 | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` |
 | `KAFKA_TOPIC` | `video.uploaded` |
+| `KAFKA_GROUP_ID` | `ims-processor` |
 | `AWS_ENDPOINT_URL` | `http://localhost:4566` |
 | `S3_PUBLIC_ENDPOINT` | same as AWS endpoint if unset — must be host-reachable for PUT |
 | `S3_BUCKET` | `videos` |
@@ -33,7 +34,12 @@ Config parse: `backend/ems/upload/src/config.rs`
 | `PRESIGN_TTL_SECS` | `3600` |
 | `SESSION_TTL_SECS` | `86400` |
 | `CDN_BASE_URL` | `http://localhost:8081` |
+| `HLS_SEGMENT_SECS` | `6` — IMS FFmpeg segment length |
+| `FFMPEG_PATH` | `ffmpeg` |
+| `IMS_WORK_DIR` | `/tmp/ims-processor` |
 | `RUST_LOG` | see template (debug for app crates) |
+| `LOG_DIR` | `logs` (export.sh → `<repo>/logs`) — file logs beside stdout |
+| `LOG_NAME` | optional override for `{LOG_DIR}/{name}.log` (default: binary name) |
 
 ## Infra host ports (Compose)
 
