@@ -32,3 +32,5 @@ Hexagonal layout under `ems/upload/`:
 - `migrations/` — `videos` + hot-path indexes (applied on startup)
 
 See root [README.md](../README.md), [docs/local-setup.md](../docs/local-setup.md), and **[docs/wiki/INDEX.md](../docs/wiki/INDEX.md)**.
+
+License: **MIT** (workspace `license = "MIT"`; see repo root [LICENSE](../LICENSE)).

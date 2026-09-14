@@ -2,6 +2,8 @@
 
 VOD platform: upload a video, process it into multiple qualities, list it, then play it from a single master playlist.
 
+**License:** [MIT](LICENSE) · Copyright (c) 2026 Mohammed Aman Khan
+
 Diagrams: [HLD](diagrams/HLD.png) · [LLD](diagrams/LLD.png)  
 Local runbook: [docs/local-setup.md](docs/local-setup.md)  
 **Code wiki (agent/human map):** [docs/wiki/INDEX.md](docs/wiki/INDEX.md)
