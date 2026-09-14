@@ -6,38 +6,42 @@ Implemented. Used by gateway and standalone `ems-upload`.
 
 Resource: **`/uploader/videos`**
 
-| Method | Path | Status | Action |
-|---|---|---|---|
-| `POST` | `/uploader/videos` | **201** + `Location` | create upload / presign |
-| `POST` | `/uploader/videos/{file_id}/complete` | 200 | verify S3 + mark uploaded + Kafka |
-| `POST` | `/uploader/videos/{file_id}/abort` | 200 | cancel pending |
-| `DELETE` | `/uploader/videos/{file_id}` | 200 | soft delete (`deleted_at`) |
+| Method   | Path                                  | Status               | Action                            |
+| -------- | ------------------------------------- | -------------------- | --------------------------------- |
+| `POST`   | `/uploader/videos`                    | **201** + `Location` | create upload / presign + init pipeline steps |
+| `GET`    | `/uploader/videos/{file_id}`          | 200                  | video row status                  |
+| `GET`    | `/uploader/videos/{file_id}/pipeline` | 200                  | steps from `video_pipeline_steps` |
+| `POST`   | `/uploader/videos/{file_id}/complete` | 200                  | verify S3 + mark uploaded + Kafka |
+| `POST`   | `/uploader/videos/{file_id}/abort`    | 200                  | cancel pending                    |
+| `POST`   | `/uploader/videos/{file_id}/retry`    | 200                  | re-queue failed → Kafka / IMS     |
+| `DELETE` | `/uploader/videos/{file_id}`          | 200                  | soft delete (`deleted_at`)        |
 
 `file_id` is in the path (not the body) for complete / abort / delete.
 
 ## Key files
 
-| Concern | Path |
-|---|---|
-| Routes | `backend/ems/upload/src/api/routes.rs` |
-| Handlers | `backend/ems/upload/src/api/handlers.rs` |
-| DTOs | `backend/ems/upload/src/api/dto.rs` |
-| Use cases | `app/get_upload_url.rs`, `complete_upload.rs`, `abort_upload.rs`, `soft_delete_video.rs` |
+| Concern   | Path                                                                                     |
+| --------- | ---------------------------------------------------------------------------------------- |
+| Routes    | `backend/ems/upload/src/api/routes.rs`                                                   |
+| Handlers  | `backend/ems/upload/src/api/handlers.rs`, `handlers_status.rs`, `handlers_pipeline.rs` |
+| DTOs      | `backend/ems/upload/src/api/dto.rs`                                                      |
+| Use cases | `app/get_upload_url.rs`, `complete_upload.rs`, `abort_upload.rs`, `get_pipeline.rs`, … |
+| Pipeline  | `ports/pipeline.rs` · `adapters/postgres/pipeline.rs` · table `video_pipeline_steps` |
 
 ## Limits (env)
 
-| Var | Default |
-|---|---|
-| `MAX_UPLOAD_BYTES` | 5 GiB |
-| `ALLOWED_CONTENT_TYPES` | mp4/webm/quicktime/matroska |
-| `MAX_TITLE_CHARS` | 200 |
-| `UPLOAD_PART_SIZE_BYTES` | 16 MiB (S3 max 10k parts) |
+| Var                      | Default                     |
+| ------------------------ | --------------------------- |
+| `MAX_UPLOAD_BYTES`       | 5 GiB                       |
+| `ALLOWED_CONTENT_TYPES`  | mp4/webm/quicktime/matroska |
+| `MAX_TITLE_CHARS`        | 200                         |
+| `UPLOAD_PART_SIZE_BYTES` | 16 MiB (S3 max 10k parts)   |
 
 ## Dual S3 endpoints
 
-| Env | Role |
-|---|---|
-| `AWS_ENDPOINT_URL` | SDK / HeadObject |
+| Env                  | Role               |
+| -------------------- | ------------------ |
+| `AWS_ENDPOINT_URL`   | SDK / HeadObject   |
 | `S3_PUBLIC_ENDPOINT` | Presigned URL host |
 
 ## Standalone

@@ -1,6 +1,8 @@
-use shared::{VideoId, VideoStatus};
+use shared::{PipelineStepName, VideoId, VideoStatus};
 use tracing::{info, warn};
 
+use crate::app::pipeline_track::track_step_err;
+use crate::ports::pipeline::PipelineRepository;
 use crate::ports::{ObjectStore, SessionStore, VideoRepository};
 
 #[derive(Debug, Clone)]
@@ -29,6 +31,7 @@ pub struct AbortUpload<'a> {
     videos: &'a dyn VideoRepository,
     objects: &'a dyn ObjectStore,
     sessions: &'a dyn SessionStore,
+    pipeline: &'a dyn PipelineRepository,
 }
 
 impl<'a> AbortUpload<'a> {
@@ -36,11 +39,13 @@ impl<'a> AbortUpload<'a> {
         videos: &'a dyn VideoRepository,
         objects: &'a dyn ObjectStore,
         sessions: &'a dyn SessionStore,
+        pipeline: &'a dyn PipelineRepository,
     ) -> Self {
         Self {
             videos,
             objects,
             sessions,
+            pipeline,
         }
     }
 
@@ -85,6 +90,7 @@ impl<'a> AbortUpload<'a> {
         }
 
         let updated = self.videos.mark_failed(file_id).await?;
+        track_step_err(self.pipeline, file_id, PipelineStepName::Upload, "aborted").await;
         let _ = self.sessions.delete(file_id).await;
         info!(%file_id, status = %updated.status, "upload aborted");
         Ok(AbortUploadOutput {

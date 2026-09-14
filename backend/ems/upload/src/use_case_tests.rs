@@ -2,7 +2,10 @@ use crate::app::{
     AbortUpload, CompleteUpload, CompleteUploadError, GetUploadUrl, GetUploadUrlInput,
     SoftDeleteVideo, UploadLimits,
 };
-use crate::fakes::{FakeEvents, FakeObjects, FakeSessions, FakeVideos};
+use crate::fakes::{FakeObjects, FakeSessions, FakeVideos};
+use crate::fakes_events::FakeEvents;
+use crate::fakes_pipeline::FakePipeline;
+use crate::ports::PipelineRepository;
 
 fn limits() -> UploadLimits {
     UploadLimits {
@@ -19,7 +22,8 @@ async fn get_upload_url_single_persists_session() {
     let videos = FakeVideos::default();
     let objects = FakeObjects::default();
     let sessions = FakeSessions::default();
-    let uc = GetUploadUrl::new(&videos, &objects, &sessions, limits());
+    let pipeline = FakePipeline::default();
+    let uc = GetUploadUrl::new(&videos, &objects, &sessions, &pipeline, limits());
     let out = uc
         .execute(GetUploadUrlInput {
             file_size: 500,
@@ -31,6 +35,7 @@ async fn get_upload_url_single_persists_session() {
     assert_eq!(out.parts.len(), 1);
     assert!(sessions.map.lock().unwrap().contains_key(&out.file_id));
     assert!(videos.rows.lock().unwrap().contains_key(&out.file_id));
+    assert_eq!(pipeline.list_steps(out.file_id).await.unwrap().len(), 8);
 }
 
 #[tokio::test]
@@ -39,7 +44,8 @@ async fn complete_checks_size_and_publishes() {
     let objects = FakeObjects::default();
     let sessions = FakeSessions::default();
     let events = FakeEvents::default();
-    let uc = GetUploadUrl::new(&videos, &objects, &sessions, limits());
+    let pipeline = FakePipeline::default();
+    let uc = GetUploadUrl::new(&videos, &objects, &sessions, &pipeline, limits());
     let out = uc
         .execute(GetUploadUrlInput {
             file_size: 100,
@@ -54,16 +60,21 @@ async fn complete_checks_size_and_publishes() {
         .unwrap()
         .insert(out.object_key.clone(), 100);
 
-    let done = CompleteUpload::new(&videos, &objects, &sessions, &events)
+    let done = CompleteUpload::new(&videos, &objects, &sessions, &events, &pipeline)
         .execute(out.file_id)
         .await
         .unwrap();
     assert_eq!(done.status.as_str(), "uploaded");
     assert_eq!(events.published.lock().unwrap().len(), 1);
-    assert!(videos.rows.lock().unwrap().get(&out.file_id).unwrap().event_published);
+    assert!(videos
+        .rows
+        .lock()
+        .unwrap()
+        .get(&out.file_id)
+        .unwrap()
+        .event_published);
 
-    // idempotent replay does not double-publish
-    CompleteUpload::new(&videos, &objects, &sessions, &events)
+    CompleteUpload::new(&videos, &objects, &sessions, &events, &pipeline)
         .execute(out.file_id)
         .await
         .unwrap();
@@ -76,7 +87,8 @@ async fn complete_rejects_size_mismatch() {
     let objects = FakeObjects::default();
     let sessions = FakeSessions::default();
     let events = FakeEvents::default();
-    let out = GetUploadUrl::new(&videos, &objects, &sessions, limits())
+    let pipeline = FakePipeline::default();
+    let out = GetUploadUrl::new(&videos, &objects, &sessions, &pipeline, limits())
         .execute(GetUploadUrlInput {
             file_size: 100,
             title: None,
@@ -89,7 +101,7 @@ async fn complete_rejects_size_mismatch() {
         .lock()
         .unwrap()
         .insert(out.object_key.clone(), 50);
-    let err = CompleteUpload::new(&videos, &objects, &sessions, &events)
+    let err = CompleteUpload::new(&videos, &objects, &sessions, &events, &pipeline)
         .execute(out.file_id)
         .await
         .unwrap_err();
@@ -101,7 +113,8 @@ async fn abort_marks_failed() {
     let videos = FakeVideos::default();
     let objects = FakeObjects::default();
     let sessions = FakeSessions::default();
-    let out = GetUploadUrl::new(&videos, &objects, &sessions, limits())
+    let pipeline = FakePipeline::default();
+    let out = GetUploadUrl::new(&videos, &objects, &sessions, &pipeline, limits())
         .execute(GetUploadUrlInput {
             file_size: 5000,
             title: None,
@@ -110,7 +123,7 @@ async fn abort_marks_failed() {
         .await
         .unwrap();
     assert!(out.upload_id.is_some());
-    let aborted = AbortUpload::new(&videos, &objects, &sessions)
+    let aborted = AbortUpload::new(&videos, &objects, &sessions, &pipeline)
         .execute(out.file_id)
         .await
         .unwrap();
@@ -124,7 +137,8 @@ async fn soft_delete_is_idempotent_and_blocks_complete() {
     let objects = FakeObjects::default();
     let sessions = FakeSessions::default();
     let events = FakeEvents::default();
-    let out = GetUploadUrl::new(&videos, &objects, &sessions, limits())
+    let pipeline = FakePipeline::default();
+    let out = GetUploadUrl::new(&videos, &objects, &sessions, &pipeline, limits())
         .execute(GetUploadUrlInput {
             file_size: 100,
             title: None,
@@ -142,7 +156,13 @@ async fn soft_delete_is_idempotent_and_blocks_complete() {
         .execute(out.file_id)
         .await
         .unwrap();
-    assert!(videos.rows.lock().unwrap().get(&out.file_id).unwrap().is_deleted());
+    assert!(videos
+        .rows
+        .lock()
+        .unwrap()
+        .get(&out.file_id)
+        .unwrap()
+        .is_deleted());
 
     let again = SoftDeleteVideo::new(&videos, &objects, &sessions)
         .execute(out.file_id)
@@ -150,7 +170,7 @@ async fn soft_delete_is_idempotent_and_blocks_complete() {
         .unwrap();
     assert_eq!(del.deleted_at, again.deleted_at);
 
-    let err = CompleteUpload::new(&videos, &objects, &sessions, &events)
+    let err = CompleteUpload::new(&videos, &objects, &sessions, &events, &pipeline)
         .execute(out.file_id)
         .await
         .unwrap_err();

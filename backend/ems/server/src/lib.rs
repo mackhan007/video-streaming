@@ -34,6 +34,11 @@ pub async fn build_router() -> anyhow::Result<(Router, u16)> {
     let upload_state = build_state(&config).await?;
     debug!("merging upload, listing, streaming routes");
 
+    let streaming = ems_streaming::build_router().await.map_err(|e| {
+        error!(error = %e, "streaming router build failed");
+        e
+    })?;
+
     let app = apply_http_layers(
         Router::new()
             .route("/health", get(health))
@@ -41,7 +46,7 @@ pub async fn build_router() -> anyhow::Result<(Router, u16)> {
             .with_state(upload_state.clone())
             .merge(uploader_router(upload_state))
             .merge(ems_listing::router())
-            .merge(ems_streaming::router()),
+            .merge(streaming),
     );
 
     Ok((app, port))

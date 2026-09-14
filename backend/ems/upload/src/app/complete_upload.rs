@@ -1,47 +1,20 @@
-use shared::{VideoId, VideoStatus, VideoUploaded};
-use tracing::{debug, error, info, warn};
+use shared::{PipelineStepName, PipelineStepState, VideoId, VideoStatus};
+use tracing::{debug, info, warn};
 
+use crate::app::complete_kafka::publish_uploaded_event;
+use crate::app::complete_multipart::ensure_multipart;
+use crate::app::complete_types::{CompleteUploadError, CompleteUploadOutput};
+use crate::app::pipeline_track::track_step;
 use crate::domain::session::UploadMode;
+use crate::ports::pipeline::PipelineRepository;
 use crate::ports::{EventPublisher, ObjectStore, SessionStore, VideoRepository};
-
-#[derive(Debug, Clone)]
-pub struct CompleteUploadOutput {
-    pub file_id: VideoId,
-    pub status: VideoStatus,
-    pub object_key: String,
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum CompleteUploadError {
-    #[error("video not found: {0}")]
-    NotFound(VideoId),
-    #[error("video soft-deleted: {0}")]
-    Deleted(VideoId),
-    #[error("upload aborted or failed: {0}")]
-    Failed(VideoId),
-    #[error("object not found in storage for {0}")]
-    ObjectMissing(VideoId),
-    #[error("object size mismatch for {id}: expected {expected}, got {actual}")]
-    SizeMismatch {
-        id: VideoId,
-        expected: u64,
-        actual: u64,
-    },
-    #[error(transparent)]
-    Videos(#[from] crate::ports::videos::VideoRepoError),
-    #[error(transparent)]
-    Objects(#[from] crate::ports::objects::ObjectStoreError),
-    #[error(transparent)]
-    Sessions(#[from] crate::ports::sessions::SessionStoreError),
-    #[error(transparent)]
-    Events(#[from] crate::ports::events::EventPublisherError),
-}
 
 pub struct CompleteUpload<'a> {
     videos: &'a dyn VideoRepository,
     objects: &'a dyn ObjectStore,
     sessions: &'a dyn SessionStore,
     events: &'a dyn EventPublisher,
+    pipeline: &'a dyn PipelineRepository,
 }
 
 impl<'a> CompleteUpload<'a> {
@@ -50,12 +23,14 @@ impl<'a> CompleteUpload<'a> {
         objects: &'a dyn ObjectStore,
         sessions: &'a dyn SessionStore,
         events: &'a dyn EventPublisher,
+        pipeline: &'a dyn PipelineRepository,
     ) -> Self {
         Self {
             videos,
             objects,
             sessions,
             events,
+            pipeline,
         }
     }
 
@@ -71,19 +46,23 @@ impl<'a> CompleteUpload<'a> {
             }
             Err(e) => return Err(e.into()),
         };
-
         if video.is_deleted() {
             return Err(CompleteUploadError::Deleted(file_id));
         }
-
         if video.status == VideoStatus::Failed {
             return Err(CompleteUploadError::Failed(file_id));
         }
-
         if video.status.is_uploaded_or_beyond() {
             return self.finish_already_uploaded(video).await;
         }
+        self.finish_pending(file_id, video).await
+    }
 
+    async fn finish_pending(
+        &self,
+        file_id: VideoId,
+        video: crate::domain::Video,
+    ) -> Result<CompleteUploadOutput, CompleteUploadError> {
         let session = self.sessions.get(file_id).await?;
         let upload_id = session
             .as_ref()
@@ -102,10 +81,8 @@ impl<'a> CompleteUpload<'a> {
             .unwrap_or_else(|| video.object_key.clone());
 
         if mode == UploadMode::Multipart {
-            self.ensure_multipart_assembled(file_id, &object_key, upload_id.as_deref())
-                .await?;
+            ensure_multipart(self.objects, file_id, &object_key, upload_id.as_deref()).await?;
         }
-
         let len = self
             .objects
             .head_object(&object_key)
@@ -123,9 +100,31 @@ impl<'a> CompleteUpload<'a> {
 
         let updated = self.videos.mark_uploaded(file_id).await?;
         info!(%file_id, status = %updated.status, "video marked uploaded");
-        self.publish_if_needed(file_id, &object_key, updated.event_published)
-            .await?;
-
+        track_step(
+            self.pipeline,
+            file_id,
+            PipelineStepName::Upload,
+            PipelineStepState::Done,
+            Some("object verified in S3"),
+        )
+        .await;
+        track_step(
+            self.pipeline,
+            file_id,
+            PipelineStepName::Queue,
+            PipelineStepState::Running,
+            Some("publishing Kafka video.uploaded"),
+        )
+        .await;
+        publish_uploaded_event(
+            self.videos,
+            self.events,
+            self.pipeline,
+            file_id,
+            &object_key,
+            updated.event_published,
+        )
+        .await?;
         let _ = self.sessions.delete(file_id).await;
         Ok(CompleteUploadOutput {
             file_id,
@@ -140,59 +139,36 @@ impl<'a> CompleteUpload<'a> {
     ) -> Result<CompleteUploadOutput, CompleteUploadError> {
         let file_id = video.id;
         info!(%file_id, status = %video.status, "upload already complete");
-        self.publish_if_needed(file_id, &video.object_key, video.event_published)
-            .await?;
+        track_step(
+            self.pipeline,
+            file_id,
+            PipelineStepName::Upload,
+            PipelineStepState::Done,
+            None,
+        )
+        .await;
+        track_step(
+            self.pipeline,
+            file_id,
+            PipelineStepName::Queue,
+            PipelineStepState::Running,
+            None,
+        )
+        .await;
+        publish_uploaded_event(
+            self.videos,
+            self.events,
+            self.pipeline,
+            file_id,
+            &video.object_key,
+            video.event_published,
+        )
+        .await?;
         let _ = self.sessions.delete(file_id).await;
         Ok(CompleteUploadOutput {
             file_id,
             status: video.status,
             object_key: video.object_key,
         })
-    }
-
-    async fn ensure_multipart_assembled(
-        &self,
-        file_id: VideoId,
-        object_key: &str,
-        upload_id: Option<&str>,
-    ) -> Result<(), CompleteUploadError> {
-        if self.objects.head_object(object_key).await?.is_some() {
-            return Ok(());
-        }
-        let Some(uid) = upload_id else {
-            return Err(CompleteUploadError::ObjectMissing(file_id));
-        };
-        let parts = self.objects.list_parts(object_key, uid).await?;
-        if parts.is_empty() {
-            return Err(CompleteUploadError::ObjectMissing(file_id));
-        }
-        info!(%file_id, parts = parts.len(), "completing multipart upload");
-        self.objects
-            .complete_multipart_upload(object_key, uid, parts)
-            .await?;
-        Ok(())
-    }
-
-    async fn publish_if_needed(
-        &self,
-        file_id: VideoId,
-        object_key: &str,
-        already: bool,
-    ) -> Result<(), CompleteUploadError> {
-        if already {
-            debug!(%file_id, "kafka event already published");
-            return Ok(());
-        }
-        let event = VideoUploaded {
-            file_id,
-            object_key: object_key.to_string(),
-        };
-        if let Err(e) = self.events.publish_uploaded(&event).await {
-            error!(error = %e, %file_id, "kafka publish failed");
-            return Err(e.into());
-        }
-        self.videos.mark_event_published(file_id).await?;
-        info!(%file_id, "video.uploaded published");
-        Ok(())
     }
 }

@@ -14,6 +14,10 @@ pub mod ports;
 #[cfg(test)]
 mod fakes;
 #[cfg(test)]
+mod fakes_events;
+#[cfg(test)]
+mod fakes_pipeline;
+#[cfg(test)]
 mod use_case_tests;
 
 use std::sync::Arc;
@@ -21,7 +25,7 @@ use std::sync::Arc;
 use tracing::{debug, error, info};
 
 use crate::adapters::kafka::KafkaEventPublisher;
-use crate::adapters::postgres::PostgresVideoRepository;
+use crate::adapters::postgres::{PostgresPipeline, PostgresVideoRepository};
 use crate::adapters::redis::RedisSessionStore;
 use crate::adapters::s3::S3ObjectStore;
 use crate::api::routes::{self, AppState};
@@ -57,6 +61,8 @@ pub async fn build_state(config: &Config) -> anyhow::Result<AppState> {
         e
     })?;
     info!("postgres migrations applied");
+
+    let pipeline = PostgresPipeline::new(videos.pool());
 
     debug!(
         internal = %config.aws_endpoint_url,
@@ -108,6 +114,7 @@ pub async fn build_state(config: &Config) -> anyhow::Result<AppState> {
         objects: Arc::new(objects),
         sessions: Arc::new(sessions),
         events: Arc::new(events),
+        pipeline: Arc::new(pipeline),
         limits: UploadLimits {
             part_size: config.upload_part_size_bytes,
             max_upload_bytes: config.max_upload_bytes,

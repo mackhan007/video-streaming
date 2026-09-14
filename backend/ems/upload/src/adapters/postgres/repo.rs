@@ -111,6 +111,25 @@ impl VideoRepository for PostgresVideoRepository {
         .await
     }
 
+    async fn requeue_failed(&self, id: shared::VideoId) -> Result<Video, VideoRepoError> {
+        self.status_transition(
+            id,
+            "requeue_failed",
+            r#"
+            UPDATE videos
+            SET status = 'uploaded'::video_status,
+                playback_path = NULL,
+                event_published = false,
+                updated_at = now()
+            WHERE id = $1
+              AND deleted_at IS NULL
+              AND status = 'failed'
+            RETURNING {cols}
+            "#,
+        )
+        .await
+    }
+
     async fn soft_delete(&self, id: shared::VideoId) -> Result<Video, VideoRepoError> {
         debug!(file_id = %id, "soft_delete");
         let sql = format!(

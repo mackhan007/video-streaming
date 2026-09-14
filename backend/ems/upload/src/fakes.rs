@@ -4,10 +4,9 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use async_trait::async_trait;
-use shared::{VideoId, VideoUploaded};
+use shared::VideoId;
 
 use crate::domain::{UploadSession, Video};
-use crate::ports::events::{EventPublisher, EventPublisherError};
 use crate::ports::objects::{CompletedPart, ObjectStore, ObjectStoreError};
 use crate::ports::sessions::{SessionStore, SessionStoreError};
 use crate::ports::videos::{VideoRepoError, VideoRepository};
@@ -55,6 +54,18 @@ impl VideoRepository for FakeVideos {
         if v.status == shared::VideoStatus::Pending {
             v.status = shared::VideoStatus::Failed;
         }
+        Ok(v.clone())
+    }
+
+    async fn requeue_failed(&self, id: VideoId) -> Result<Video, VideoRepoError> {
+        let mut g = self.rows.lock().unwrap();
+        let v = g.get_mut(&id).ok_or(VideoRepoError::NotFound(id))?;
+        if v.status != shared::VideoStatus::Failed {
+            return Err(VideoRepoError::NotFound(id));
+        }
+        v.status = shared::VideoStatus::Uploaded;
+        v.playback_path = None;
+        v.event_published = false;
         Ok(v.clone())
     }
 
@@ -178,23 +189,6 @@ impl SessionStore for FakeSessions {
     }
 
     async fn ping(&self) -> Result<(), SessionStoreError> {
-        Ok(())
-    }
-}
-
-#[derive(Default)]
-pub struct FakeEvents {
-    pub published: Mutex<Vec<VideoUploaded>>,
-    pub fail: Mutex<bool>,
-}
-
-#[async_trait]
-impl EventPublisher for FakeEvents {
-    async fn publish_uploaded(&self, event: &VideoUploaded) -> Result<(), EventPublisherError> {
-        if *self.fail.lock().unwrap() {
-            return Err(EventPublisherError::Internal(anyhow::anyhow!("kafka down")));
-        }
-        self.published.lock().unwrap().push(event.clone());
         Ok(())
     }
 }

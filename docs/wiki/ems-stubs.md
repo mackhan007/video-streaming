@@ -1,6 +1,4 @@
-# EMS listing & streaming (stubs)
-
-Both return **`501 Not Implemented`** with a JSON hint. Mounted on the unified gateway.
+# EMS listing & streaming
 
 ## Listing
 
@@ -8,20 +6,37 @@ Both return **`501 Not Implemented`** with a JSON hint. Mounted on the unified g
 |---|---|
 | Lib | `backend/ems/listing/src/lib.rs` |
 | Route | `GET /lister/videos` |
-| Planned query | `?limit=&seen=` |
+| Status | **Stub** `501` |
 | Standalone port | `LISTING_HTTP_PORT` default **8086** |
 
 ## Streaming
 
 | Item | Value |
 |---|---|
-| Lib | `backend/ems/streaming/src/lib.rs` |
-| Routes | `GET /streamer/stream`, `POST /streamer/save-user-state` |
-| Planned | master playlist URL via `CDN_BASE_URL`; watch position body |
+| Lib | `backend/ems/streaming/src/` |
+| Route | `GET /streamer/stream?file_id=` |
+| Status | **Done** — returns CDN master playlist when `ready` |
+| Other | `POST /streamer/save-user-state` still `501` |
 | Standalone port | `STREAMING_HTTP_PORT` default **8087** |
 
-## When implementing
+### Response
 
-- Follow upload hexagonal layout (`api` / `app` / `ports` / `adapters`)
-- Listing: use indexes in [data-model.md](data-model.md) (`videos_ready_created_at`, …)
-- Playback bytes stay on nginx → S3, not the streaming service
+```json
+{
+  "file_id": "…",
+  "status": "ready",
+  "master_playlist_url": "http://localhost:8081/videos/hls/{file_id}/master.m3u8"
+}
+```
+
+Errors: `404` unknown / deleted · `409` not ready / no `playback_path`.
+
+### Layout
+
+| Path | Role |
+|---|---|
+| `app/mod.rs` | `GetStream` use case |
+| `adapters/mod.rs` | Postgres `get_for_stream` (PK lookup) |
+| `api/routes.rs` | HTTP |
+
+Playback bytes: nginx → LocalStack S3 (not this service).

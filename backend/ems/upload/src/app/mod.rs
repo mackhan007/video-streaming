@@ -1,11 +1,22 @@
 pub mod abort_upload;
+pub mod complete_kafka;
+pub mod complete_multipart;
+pub mod complete_types;
 pub mod complete_upload;
+pub mod get_pipeline;
 pub mod get_upload_url;
+pub mod get_video_status;
+pub mod pipeline_track;
+pub mod retry_processing;
 pub mod soft_delete_video;
 pub mod validate_upload;
 
 pub use abort_upload::{AbortUpload, AbortUploadError, AbortUploadOutput};
-pub use complete_upload::{CompleteUpload, CompleteUploadError, CompleteUploadOutput};
+pub use complete_types::{CompleteUploadError, CompleteUploadOutput};
+pub use complete_upload::CompleteUpload;
+pub use get_pipeline::{GetPipeline, GetPipelineError, GetPipelineOutput};
 pub use get_upload_url::{GetUploadUrl, GetUploadUrlError, GetUploadUrlInput, GetUploadUrlOutput};
+pub use get_video_status::{GetVideoStatus, GetVideoStatusError, GetVideoStatusOutput};
+pub use retry_processing::{RetryProcessing, RetryProcessingError, RetryProcessingOutput};
 pub use soft_delete_video::{SoftDeleteVideo, SoftDeleteVideoError, SoftDeleteVideoOutput};
 pub use validate_upload::UploadLimits;

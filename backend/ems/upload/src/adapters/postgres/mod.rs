@@ -1,12 +1,14 @@
 //! Postgres video repository (split to stay under the 200-line file limit).
 
+mod pipeline;
 mod repo;
 mod row;
 
 use anyhow::Context;
-use sqlx::postgres::PgPoolOptions;
+use sqlx::postgres::{PgPool, PgPoolOptions};
 use tracing::{debug, info};
 
+pub use pipeline::PostgresPipeline;
 pub use repo::PostgresVideoRepository;
 
 impl PostgresVideoRepository {
@@ -19,6 +21,10 @@ impl PostgresVideoRepository {
             .context("connect postgres")?;
         info!("postgres pool ready");
         Ok(Self { pool })
+    }
+
+    pub fn pool(&self) -> PgPool {
+        self.pool.clone()
     }
 
     pub async fn migrate(&self) -> anyhow::Result<()> {

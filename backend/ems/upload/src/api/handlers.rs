@@ -58,6 +58,7 @@ pub async fn create_upload(
         state.videos.as_ref(),
         state.objects.as_ref(),
         state.sessions.as_ref(),
+        state.pipeline.as_ref(),
         state.limits.clone(),
     );
     let out = use_case
@@ -103,6 +104,7 @@ pub async fn complete_upload(
         state.objects.as_ref(),
         state.sessions.as_ref(),
         state.events.as_ref(),
+        state.pipeline.as_ref(),
     );
     let out = use_case.execute(file_id).await?;
     info!(%file_id, status = %out.status, "complete upload ok");
@@ -123,6 +125,7 @@ pub async fn abort_upload(
         state.videos.as_ref(),
         state.objects.as_ref(),
         state.sessions.as_ref(),
+        state.pipeline.as_ref(),
     );
     let out = use_case.execute(file_id).await?;
     info!(%file_id, status = %out.status, "abort upload ok");

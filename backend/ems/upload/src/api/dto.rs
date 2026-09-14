@@ -52,3 +52,36 @@ pub struct SoftDeleteVideoResponse {
     pub file_id: VideoId,
     pub deleted_at: chrono::DateTime<chrono::Utc>,
 }
+
+/// `GET /uploader/videos/{file_id}`
+#[derive(Debug, Serialize)]
+pub struct VideoStatusResponse {
+    pub file_id: VideoId,
+    pub status: String,
+    pub title: Option<String>,
+    pub playback_path: Option<String>,
+    pub file_size: i64,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// `GET /uploader/videos/{file_id}/pipeline`
+#[derive(Debug, Serialize)]
+pub struct PipelineStepDto {
+    pub step: String,
+    pub state: String,
+    pub detail: Option<String>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PipelineResponse {
+    pub file_id: VideoId,
+    pub steps: Vec<PipelineStepDto>,
+}
+
+/// `POST /uploader/videos/{file_id}/retry`
+#[derive(Debug, Serialize)]
+pub struct RetryProcessingResponse {
+    pub file_id: VideoId,
+    pub status: String,
+}

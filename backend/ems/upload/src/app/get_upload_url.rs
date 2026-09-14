@@ -4,6 +4,7 @@ use tracing::{debug, info, warn};
 use crate::app::validate_upload::{validate_upload_request, UploadLimits, UploadValidationError};
 use crate::domain::session::UploadMode;
 use crate::domain::{UploadSession, Video};
+use crate::ports::pipeline::PipelineRepository;
 use crate::ports::{ObjectStore, PresignedPart, SessionStore, VideoRepository};
 
 #[derive(Debug, Clone)]
@@ -33,12 +34,15 @@ pub enum GetUploadUrlError {
     Objects(#[from] crate::ports::objects::ObjectStoreError),
     #[error(transparent)]
     Sessions(#[from] crate::ports::sessions::SessionStoreError),
+    #[error(transparent)]
+    Pipeline(#[from] crate::ports::pipeline::PipelineRepoError),
 }
 
 pub struct GetUploadUrl<'a> {
     videos: &'a dyn VideoRepository,
     objects: &'a dyn ObjectStore,
     sessions: &'a dyn SessionStore,
+    pipeline: &'a dyn PipelineRepository,
     limits: UploadLimits,
 }
 
@@ -47,12 +51,14 @@ impl<'a> GetUploadUrl<'a> {
         videos: &'a dyn VideoRepository,
         objects: &'a dyn ObjectStore,
         sessions: &'a dyn SessionStore,
+        pipeline: &'a dyn PipelineRepository,
         limits: UploadLimits,
     ) -> Self {
         Self {
             videos,
             objects,
             sessions,
+            pipeline,
             limits,
         }
     }
@@ -76,7 +82,6 @@ impl<'a> GetUploadUrl<'a> {
             %file_id,
             %object_key,
             file_size = input.file_size,
-            part_size = self.limits.part_size,
             multipart,
             "creating upload session"
         );
@@ -106,6 +111,8 @@ impl<'a> GetUploadUrl<'a> {
                 .await;
             return Err(e.into());
         }
+
+        self.pipeline.init_pipeline(file_id).await?;
 
         let session = UploadSession {
             file_id,
@@ -137,7 +144,6 @@ impl<'a> GetUploadUrl<'a> {
         object_key: &str,
         input: &GetUploadUrlInput,
     ) -> Result<(UploadMode, Option<String>, Vec<PresignedPart>), GetUploadUrlError> {
-        debug!(object_key, "presigning single PutObject");
         let url = self
             .objects
             .presign_put_object(object_key, input.content_type.as_deref())
@@ -163,7 +169,6 @@ impl<'a> GetUploadUrl<'a> {
             .await?;
         let part_count =
             ((input.file_size + self.limits.part_size - 1) / self.limits.part_size) as i32;
-        debug!(%upload_id, part_count, "presigning multipart parts");
         let mut parts = Vec::with_capacity(part_count as usize);
         for part_number in 1..=part_count {
             match self

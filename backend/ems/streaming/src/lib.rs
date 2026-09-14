@@ -1,55 +1,44 @@
-//! EMS Video Streaming Controller library (stub until streaming work starts).
+//! EMS Video Streaming — resolve CDN master playlist URLs.
 
-use axum::http::StatusCode;
-use axum::routing::{get, post};
-use axum::{Json, Router};
-use serde_json::{json, Value};
-use tracing::{debug, info, warn};
+mod adapters;
+mod api;
+mod app;
+mod config;
+mod ports;
 
-/// Streaming routes for the EMS gateway (`/streamer/...`).
-pub fn router() -> Router {
-    Router::new()
-        .route("/streamer/stream", get(stream))
-        .route("/streamer/save-user-state", post(save_user_state))
+use std::sync::Arc;
+
+use axum::Router;
+use tracing::info;
+
+use crate::adapters::{PipelinePlayMarker, PostgresVideos};
+use crate::api::routes::{router as stream_router, AppState};
+use crate::config::Config;
+use crate::ports::VideoRepository;
+
+pub async fn build_router() -> anyhow::Result<Router> {
+    let config = Config::from_env()?;
+    let videos_pg = PostgresVideos::connect(&config.database_url).await?;
+    let play = Arc::new(PipelinePlayMarker::new(videos_pg.pool()));
+    let videos: Arc<dyn VideoRepository> = Arc::new(videos_pg);
+    let state = AppState {
+        videos,
+        play,
+        cdn_base_url: config.cdn_base_url,
+    };
+    Ok(stream_router(state))
 }
 
-async fn stream() -> (StatusCode, Json<Value>) {
-    warn!("GET /streamer/stream not implemented");
-    (
-        StatusCode::NOT_IMPLEMENTED,
-        Json(json!({
-            "error": "streaming not implemented yet",
-            "hint": "GET /streamer/stream?file_id="
-        })),
-    )
-}
-
-async fn save_user_state() -> (StatusCode, Json<Value>) {
-    warn!("POST /streamer/save-user-state not implemented");
-    (
-        StatusCode::NOT_IMPLEMENTED,
-        Json(json!({
-            "error": "save-user-state not implemented yet",
-            "hint": "POST /streamer/save-user-state"
-        })),
-    )
-}
-
-/// Standalone streaming process (health + stub routes).
+/// Standalone streaming process (health + stream routes).
 pub async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let port = std::env::var("STREAMING_HTTP_PORT").unwrap_or_else(|_| "8087".into());
-    info!(%port, "starting ems-streaming stub");
-    let app = Router::new()
-        .route(
-            "/health",
-            get(|| async {
-                debug!("health probe");
-                "ok"
-            }),
-        )
-        .merge(router());
+    let app = axum::Router::new()
+        .route("/health", axum::routing::get(|| async { "ok" }))
+        .merge(build_router().await?);
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}")).await?;
-    info!(%port, "ems-streaming stub listening");
+    info!(%port, "ems-streaming listening");
     axum::serve(listener, app).await?;
     Ok(())
 }
+
+pub use api::routes::router;

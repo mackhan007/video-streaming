@@ -5,7 +5,8 @@ use serde_json::json;
 use tracing::{error, warn};
 
 use crate::app::{
-    AbortUploadError, CompleteUploadError, GetUploadUrlError, SoftDeleteVideoError,
+    AbortUploadError, CompleteUploadError, GetUploadUrlError, RetryProcessingError,
+    SoftDeleteVideoError,
 };
 use crate::app::validate_upload::UploadValidationError;
 
@@ -71,6 +72,21 @@ impl From<AbortUploadError> for ApiError {
             AbortUploadError::NotFound(_) => Self::new(StatusCode::NOT_FOUND, value.to_string()),
             AbortUploadError::Deleted(_) => Self::new(StatusCode::GONE, value.to_string()),
             AbortUploadError::NotAbortable(_, _) => {
+                Self::new(StatusCode::CONFLICT, value.to_string())
+            }
+            other => Self::new(StatusCode::SERVICE_UNAVAILABLE, other.to_string()),
+        }
+    }
+}
+
+impl From<RetryProcessingError> for ApiError {
+    fn from(value: RetryProcessingError) -> Self {
+        match value {
+            RetryProcessingError::NotFound(_) => {
+                Self::new(StatusCode::NOT_FOUND, value.to_string())
+            }
+            RetryProcessingError::Deleted(_) => Self::new(StatusCode::GONE, value.to_string()),
+            RetryProcessingError::NotRetryable(_, _) => {
                 Self::new(StatusCode::CONFLICT, value.to_string())
             }
             other => Self::new(StatusCode::SERVICE_UNAVAILABLE, other.to_string()),

@@ -1,20 +1,23 @@
 //! REST routes for the upload resource collection.
 //!
-//! | Method   | Path                                 | Action              |
-//! |----------|--------------------------------------|---------------------|
-//! | `POST`   | `/uploader/videos`                   | create upload       |
-//! | `POST`   | `/uploader/videos/{file_id}/complete`| mark upload done    |
-//! | `POST`   | `/uploader/videos/{file_id}/abort`   | cancel pending      |
-//! | `DELETE` | `/uploader/videos/{file_id}`         | soft-delete         |
+//! | `GET`    | `/uploader/videos/{file_id}`          | video status         |
+//! | `GET`    | `/uploader/videos/{file_id}/pipeline` | pipeline steps table |
+//! | `POST`   | `/uploader/videos`                    | create upload        |
+//! | `POST`   | `/uploader/videos/{file_id}/complete` | mark upload done     |
+//! | `POST`   | `/uploader/videos/{file_id}/abort`    | cancel pending       |
+//! | `DELETE` | `/uploader/videos/{file_id}`          | soft-delete          |
 
 use std::sync::Arc;
 
-use axum::routing::{delete, get, post};
+use axum::routing::{get, post};
 use axum::Router;
 
 use crate::api::handlers;
+use crate::api::handlers_pipeline;
+use crate::api::handlers_retry;
+use crate::api::handlers_status;
 use crate::app::UploadLimits;
-use crate::ports::{EventPublisher, ObjectStore, SessionStore, VideoRepository};
+use crate::ports::{EventPublisher, ObjectStore, PipelineRepository, SessionStore, VideoRepository};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -22,6 +25,7 @@ pub struct AppState {
     pub objects: Arc<dyn ObjectStore>,
     pub sessions: Arc<dyn SessionStore>,
     pub events: Arc<dyn EventPublisher>,
+    pub pipeline: Arc<dyn PipelineRepository>,
     pub limits: UploadLimits,
 }
 
@@ -38,8 +42,16 @@ pub fn uploader_router(state: AppState) -> Router {
             post(handlers::abort_upload),
         )
         .route(
+            "/uploader/videos/{file_id}/retry",
+            post(handlers_retry::retry_processing),
+        )
+        .route(
+            "/uploader/videos/{file_id}/pipeline",
+            get(handlers_pipeline::get_pipeline),
+        )
+        .route(
             "/uploader/videos/{file_id}",
-            delete(handlers::soft_delete_video),
+            get(handlers_status::get_video_status).delete(handlers::soft_delete_video),
         )
         .with_state(state)
 }
