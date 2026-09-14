@@ -98,7 +98,8 @@ impl PipelineRepository for PostgresPipeline {
     ) -> Result<Vec<PipelineStep>, PipelineRepoError> {
         let rows = sqlx::query(
             r#"
-            SELECT step::text AS step, state::text AS state, detail, error
+            SELECT step::text AS step, state::text AS state, detail, error,
+                   started_at, finished_at
             FROM video_pipeline_steps
             WHERE video_id = $1
             ORDER BY step
@@ -119,6 +120,8 @@ impl PipelineRepository for PostgresPipeline {
                 state,
                 detail: r.get("detail"),
                 error: r.get("error"),
+                started_at: r.get("started_at"),
+                finished_at: r.get("finished_at"),
             });
         }
         // Stable UI order (enum ORDER BY step is lexical — re-sort).

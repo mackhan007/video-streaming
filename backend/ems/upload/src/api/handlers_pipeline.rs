@@ -35,6 +35,8 @@ pub async fn get_pipeline(
                 state: s.state.as_str().to_string(),
                 detail: s.detail,
                 error: s.error,
+                started_at: s.started_at,
+                finished_at: s.finished_at,
             })
             .collect(),
     }))

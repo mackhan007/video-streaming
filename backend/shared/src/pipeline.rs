@@ -73,4 +73,6 @@ pub struct PipelineStep {
     pub state: PipelineStepState,
     pub detail: Option<String>,
     pub error: Option<String>,
+    pub started_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub finished_at: Option<chrono::DateTime<chrono::Utc>>,
 }

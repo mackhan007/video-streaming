@@ -31,14 +31,14 @@ Env: `.env.example` (`VITE_API_BASE_URL` empty in dev).
 | `src/components/` | YouTube-studio style upload UI (Tailwind) |
 | `src/components/PipelineSteps.tsx` | Stepper driven by `video_pipeline_steps` |
 | `src/index.css` | Tailwind entry + base layer |
-| `src/ui/` | Shared class strings + helpers |
+| `src/ui/` | Shared class strings + helpers (`formatBytes`, `formatDuration`) |
 | `tailwind.config.js` | Classic desk theme tokens |
 
 Styling: **Tailwind CSS v3** (PostCSS). Theme colors/fonts live in `tailwind.config.js`.
 
-UI shows live **EMS / IMS / CDN** health chips and a **pipeline stepper** fed from `GET /uploader/videos/{id}/pipeline` (`video_pipeline_steps`), including an **ABR row** (360p / 720p / 1080p), with HLS playback when the ready step is done.
+UI shows live **EMS / IMS / CDN** health chips and a **pipeline stepper** fed from `GET /uploader/videos/{id}/pipeline` (`video_pipeline_steps`), including an **ABR row** (360p / 720p / 1080p) with **elapsed / took** per step (`started_at`–`finished_at`), and HLS playback when the ready step is done.
 
-Allowed types: mp4 / webm / quicktime / matroska (same as EMS).
+Allowed types: mp4 / webm / quicktime / matroska (same as EMS). Header sniff (`src/upload/assertVideoFile.ts`) accepts ISO BMFF `ftyp` **and** `mdat`-first files. A `.mp4` that is actually a ZIP of stored videos (`src/upload/unwrapZipVideo.ts`) is unwrapped (name-matched or single entry); multi-video archives ask the user to unzip.
 
 **Pause / resume:** During transfer, **Pause** aborts the in-flight S3 PUT and keeps the EMS session. **Resume** retries the unfinished part (multipart continues from that part; single-object mode restarts the one PUT). **Cancel** still aborts the upload session on EMS.
 

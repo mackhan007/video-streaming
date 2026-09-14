@@ -34,7 +34,7 @@ Separate from `videos.status`. One row per `(video_id, step)`:
 
 States: `pending` \| `running` \| `done` \| `failed`.
 
-API: `GET /uploader/videos/{file_id}/pipeline`
+API: `GET /uploader/videos/{file_id}/pipeline` (includes `started_at` / `finished_at`).
 
 ## `videos` columns (summary)
 

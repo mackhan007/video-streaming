@@ -31,6 +31,8 @@ impl PipelineRepository for FakePipeline {
                     state,
                     detail: None,
                     error: None,
+                    started_at: None,
+                    finished_at: None,
                 },
             );
         }
@@ -54,6 +56,8 @@ impl PipelineRepository for FakePipeline {
                 state,
                 detail: detail.map(str::to_string),
                 error: error.map(str::to_string),
+                started_at: None,
+                finished_at: None,
             },
         );
         Ok(())

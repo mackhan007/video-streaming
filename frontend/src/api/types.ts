@@ -57,6 +57,8 @@ export type PipelineStep = {
   state: PipelineStepState;
   detail: string | null;
   error: string | null;
+  started_at: string | null;
+  finished_at: string | null;
 };
 
 export type PipelineResponse = {
