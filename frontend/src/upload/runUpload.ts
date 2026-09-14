@@ -1,5 +1,6 @@
 import { uploadApi } from "../api/uploadApi";
 import type { CompleteUploadResponse } from "../api/types";
+import { assertVideoFile } from "./assertVideoFile";
 import {
   putToStorage,
   TransferAbortedError,
@@ -48,6 +49,7 @@ export async function runUpload(
   cb: RunUploadCallbacks,
 ): Promise<CompleteUploadResponse> {
   cb.onPhase("requesting");
+  await assertVideoFile(file);
   const session = await uploadApi.create({
     fileSize: file.size,
     title: title.trim() || undefined,
