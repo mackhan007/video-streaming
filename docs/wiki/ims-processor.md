@@ -35,6 +35,7 @@ Audio-less sources retry as video-only variants (all rungs).
 | `adapters/master_playlist.rs` | Writes multi-variant `master.m3u8` |
 | `adapters/ladder.rs` | 360p / 720p / 1080p rungs |
 | `adapters/hls_files.rs` | Collect + relative keys |
+| `adapters/media_sniff.rs` | Magic: ISO BMFF (`ftyp`/`mdat`/…) then EBML; ZIP last |
 | `adapters/s3.rs` / `postgres.rs` | IO |
 | `ports/` | Traits |
 
