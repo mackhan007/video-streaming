@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { CompleteUploadResponse } from "../api/types";
 import {
   runUpload,
@@ -6,6 +6,12 @@ import {
   type UploadPhase,
 } from "../upload/runUpload";
 import { TransferAbortedError } from "../upload/transferControl";
+import {
+  clearUploadSession,
+  loadUploadSession,
+  saveUploadSession,
+  sessionToUploaderState,
+} from "../upload/uploadSession";
 
 export type UploaderState = {
   phase: UploadPhase;
@@ -29,10 +35,33 @@ const initial: UploaderState = {
   error: null,
 };
 
+function readInitial(): UploaderState {
+  const stored = loadUploadSession();
+  return stored ? sessionToUploaderState(stored) : initial;
+}
+
 export function useVideoUpload() {
-  const [state, setState] = useState<UploaderState>(initial);
-  const draft = useRef({ title: "", file: null as File | null });
+  const boot = useRef(readInitial());
+  const [state, setState] = useState<UploaderState>(boot.current);
+  const draft = useRef({
+    title: boot.current.title,
+    file: null as File | null,
+  });
   const controlRef = useRef<TransferControl | null>(null);
+
+  useEffect(() => {
+    if (!state.fileId) return;
+    saveUploadSession({
+      fileId: state.fileId,
+      title: state.title,
+      phase: state.phase,
+      result: state.result,
+      fileName: state.file?.name ?? null,
+      totalBytes: state.totalBytes,
+      bytesSent: state.bytesSent,
+      error: state.error,
+    });
+  }, [state]);
 
   const setTitle = useCallback((title: string) => {
     draft.current.title = title;
@@ -51,12 +80,14 @@ export function useVideoUpload() {
       fileId: null,
       phase: "idle",
     }));
+    clearUploadSession();
   }, []);
 
   const reset = useCallback(() => {
     controlRef.current?.abort();
     controlRef.current = null;
     draft.current = { title: "", file: null };
+    clearUploadSession();
     setState(initial);
   }, []);
 
@@ -68,21 +99,29 @@ export function useVideoUpload() {
     const c = controlRef.current;
     if (!c || c.aborted) return;
     c.pause();
-    setState((s) => (s.phase === "transferring" ? { ...s, phase: "paused" } : s));
+    setState((s) =>
+      s.phase === "transferring" ? { ...s, phase: "paused" } : s,
+    );
   }, []);
 
   const resume = useCallback(() => {
     const c = controlRef.current;
     if (!c || c.aborted) return;
     c.resume();
-    setState((s) => (s.phase === "paused" ? { ...s, phase: "transferring" } : s));
+    setState((s) =>
+      s.phase === "paused" ? { ...s, phase: "transferring" } : s,
+    );
   }, []);
 
   const start = useCallback(async () => {
     const file = draft.current.file;
     const title = draft.current.title;
     if (!file) {
-      setState((s) => ({ ...s, error: "Choose a video file first.", phase: "error" }));
+      setState((s) => ({
+        ...s,
+        error: "Choose a video file first.",
+        phase: "error",
+      }));
       return;
     }
     const control = new TransferControl();
