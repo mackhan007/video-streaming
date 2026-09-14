@@ -9,7 +9,7 @@ Config parse: `backend/ems/upload/src/config.rs` · IMS: `backend/ims/processor/
 |---|---|---|
 | `EMS_HTTP_PORT` | 8080 | `ems` gateway |
 | `HTTP_PORT` | 8085 | `ems-upload` alone |
-| `LISTING_HTTP_PORT` | 8086 | listing stub |
+| `LISTING_HTTP_PORT` | 8086 | listing |
 | `STREAMING_HTTP_PORT` | 8087 | streaming |
 | `PROCESSOR_HTTP_PORT` | 8088 | IMS processor (first worker; extras are +1, +2, …) |
 
@@ -33,9 +33,10 @@ Config parse: `backend/ems/upload/src/config.rs` · IMS: `backend/ims/processor/
 | `UPLOAD_PART_SIZE_BYTES` | `16777216` |
 | `PRESIGN_TTL_SECS` | `3600` |
 | `SESSION_TTL_SECS` | `86400` |
+| `WATCH_TTL_SECS` | `2592000` (30 days) — streamer resume keys |
 | `CDN_BASE_URL` | `http://localhost:8081` |
 | `HLS_SEGMENT_SECS` | `6` — IMS FFmpeg HLS segment length |
-| `IMS_CHUNK_SECS` | `60` (Helm local: `90`) — long-file time slice for parallel FFmpeg |
+| `IMS_CHUNK_SECS` | `60` — long-file time slice for parallel FFmpeg (`duration > 1.5 × chunk`) |
 | `IMS_ENCODE_PARALLEL` | `0` — max concurrent FFmpeg jobs (`0` = CPU count clamped 4–16). Helm local: `2` (packed ladder is heavier per job) |
 | `FFMPEG_PRESET` | `veryfast` (Helm local: `ultrafast`) |
 | `IMS_WORKERS` | `3` — extra IMS processes from `scripts/dev.sh` |

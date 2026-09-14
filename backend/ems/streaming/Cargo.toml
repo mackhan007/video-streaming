@@ -22,3 +22,4 @@ thiserror = { workspace = true }
 async-trait = { workspace = true }
 sqlx = { workspace = true }
 uuid = { workspace = true }
+redis = { workspace = true }

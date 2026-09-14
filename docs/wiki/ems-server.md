@@ -17,8 +17,8 @@ Listens on **`EMS_HTTP_PORT`** (default **8080**). Merges upload + listing + str
 | `GET` | `/health` | `ems/server/src/lib.rs` |
 | `GET` | `/ready` | same → `ems_upload::check_ready` |
 | `POST`/`DELETE` | `/uploader/videos…` | REST upload resource (create/complete/abort/delete) |
-| `GET` | `/lister/*` | `ems_listing::router` |
-| `GET/POST` | `/streamer/*` | `ems_streaming::router` |
+| `GET` | `/lister/videos` · `/lister/links` | `ems_listing::build_router` |
+| `GET/POST` | `/streamer/*` | `ems_streaming::build_router` |
 
 HTTP layers (trace + request-id): `ems_upload::apply_http_layers` ← `ems/upload/src/http.rs`.
 
@@ -31,4 +31,4 @@ HTTP layers (trace + request-id): `ems_upload::apply_http_layers` ← `ems/uploa
 
 ## Related wiki
 
-[ems-upload.md](ems-upload.md) · [ems-stubs.md](ems-stubs.md) · [env-and-ports.md](env-and-ports.md)
+[ems-upload.md](ems-upload.md) · [ems-listing.md](ems-listing.md) · [ems-streaming.md](ems-streaming.md) · [env-and-ports.md](env-and-ports.md)

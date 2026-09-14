@@ -134,9 +134,11 @@ cd backend && cargo run -p ims-processor --bin ims-processor
 | `POST /uploader/videos/{id}/complete` | live |
 | `POST /uploader/videos/{id}/abort` | live |
 | `DELETE /uploader/videos/{id}` | live (soft delete) |
-| `GET /lister/videos` | stub `501` |
+| `GET /lister/videos` | live — all uploads (keyset `limit`/`seen`) |
+| `GET /lister/links` | live — ready videos + CDN playlist URLs |
 | `GET /streamer/stream?file_id=` | live — CDN master URL when `ready` |
-| `POST /streamer/save-user-state` | stub `501` |
+| `POST /streamer/save-user-state` | live — watch progress (Redis) |
+| `GET /streamer/user-state?file_id=&viewer_id=` | live — last position |
 
 Default port: **`EMS_HTTP_PORT=8080`**. Logging via `RUST_LOG` (see `.env.template`).
 
@@ -187,8 +189,8 @@ backend/
   shared/                    # domain types + logging
   ems/server/                # bin ems — unified gateway
   ems/upload/                # upload lib + bin; migrations/
-  ems/listing/               # stub
-  ems/streaming/             # stub
+  ems/listing/               # catalog: /lister/videos + /lister/links
+  ems/streaming/             # CDN playlist URLs + watch progress
   ims/processor/             # Kafka → chunked FFmpeg HLS
   Dockerfile                 # release image → ems :8080
   Dockerfile.ims             # release image → ims-processor

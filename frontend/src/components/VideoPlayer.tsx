@@ -1,17 +1,22 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
+import { useWatchProgress } from "../hooks/useWatchProgress";
 
 type Props = {
   src: string;
   title?: string | null;
+  fileId?: string;
 };
 
 /** HLS player (native Safari + hls.js elsewhere). */
-export function VideoPlayer({ src, title }: Props) {
+export function VideoPlayer({ src, title, fileId }: Props) {
   const ref = useRef<HTMLVideoElement>(null);
+  const [el, setEl] = useState<HTMLVideoElement | null>(null);
+  useWatchProgress(fileId, el);
 
   useEffect(() => {
     const video = ref.current;
+    setEl(video);
     if (!video || !src) return;
 
     if (video.canPlayType("application/vnd.apple.mpegurl")) {

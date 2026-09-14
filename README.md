@@ -18,10 +18,10 @@ Commit messages: [commitlint](https://commitlint.js.org/) — [docs/commitlint.m
 | Docker data plane (LocalStack S3, Postgres, Redis, Kafka, nginx CDN + UIs) | **Done** |
 | Unified EMS HTTP server (`ems` on `:8080`) | **Done** |
 | Upload controller (presign → PUT S3 → complete → Kafka) | **Done** |
-| Streaming (`GET /streamer/stream`) | **Done** |
-| Listing controller | **Stub** (`501`) |
+| Streaming (`GET /streamer/stream` + watch progress) | **Done** |
+| Listing controller | **Done** (`GET /lister/videos`, `GET /lister/links`) |
 | IMS processor (Kafka → FFmpeg HLS → ready) | **Done** |
-| Frontend | **Uploader UI** (listing/player later) |
+| Frontend | **Upload + My videos + Watch** |
 
 Primary local entrypoint: **`npm run dev`** (EMS + IMS + Vite) or **`cargo run -p ems-server --bin ems`**.
 
@@ -32,7 +32,7 @@ Primary local entrypoint: **`npm run dev`** (EMS + IMS + Vite) or **`cargo run -
 1. A client asks the backend for **presigned upload URLs** and PUTs the file **directly to object storage**.
 2. The client calls **upload completed**. The backend checks the object exists, marks the row `uploaded`, and publishes Kafka `video.uploaded`.
 3. The **IMS processor** consumes the event, claims the row, runs **FFmpeg ABR HLS** (360p / 720p / 1080p), uploads `hls/{file_id}/`, and sets status `ready` with `playback_path`.
-4. Listing will read **Redis**, then **Postgres**, and return paginated catalog data (stub today).
+4. Listing reads **Postgres** (keyset `limit` + `seen`) for all uploads and ready playback links.
 5. Playback: `GET /streamer/stream?file_id=` returns a **master playlist URL**; the player talks to **nginx** (local CDN). nginx pulls from **LocalStack S3** on cache miss.
 
 This is **Video On Demand**. Live ingest is out of scope for the current APIs.
@@ -75,10 +75,10 @@ Details, ports, and UIs: [docs/local-setup.md](docs/local-setup.md). Uploader ap
 |---|---|---|
 | **EMS server** | Single domain for upload + listing + streaming | `backend/ems/server` → bin `ems` |
 | **Video Upload** | Presigned URLs, complete, enqueue | `backend/ems/upload` (lib + bin `ems-upload`) |
-| **Video Listing** | Paginated catalog | `backend/ems/listing` (stub) |
+| **Video Listing** | Paginated catalog | `backend/ems/listing` |
 | **Video Streaming** | Master playlist URL | `backend/ems/streaming` |
 | **Video Processing (IMS)** | Kafka → FFmpeg HLS → ready | `backend/ims/processor` |
-| **Frontend** | Upload desk (React) | `frontend/` |
+| **Frontend** | Upload + catalog desk (React) | `frontend/` |
 
 ### Data stores
 
@@ -102,8 +102,8 @@ Upload (implemented)
 Process (planned)
   Kafka → IMS worker → S3 HLS → Postgres ready
 
-List / Play (planned)
-  Client → EMS /lister/*  → Redis → Postgres
+List / Play
+  Client → EMS /lister/*  → Postgres (keyset)
   Client → EMS /streamer/* → { master_url }
   Player → nginx → LocalStack S3
 ```
@@ -124,9 +124,11 @@ List / Play (planned)
 | `POST` | `/uploader/videos/{file_id}/complete` | Live |
 | `POST` | `/uploader/videos/{file_id}/abort` | Live |
 | `DELETE` | `/uploader/videos/{file_id}` | Live (soft delete) |
-| `GET` | `/lister/videos?limit=&seen=` | Stub `501` |
-| `GET` | `/streamer/stream?file_id=` | Stub `501` |
-| `POST` | `/streamer/save-user-state` | Stub `501` |
+| `GET` | `/lister/videos?limit=&seen=` | Live — all uploads |
+| `GET` | `/lister/links?limit=&seen=` | Live — ready playlist URLs |
+| `GET` | `/streamer/stream?file_id=` | Live — CDN master URL |
+| `POST` | `/streamer/save-user-state` | Live — watch progress |
+| `GET` | `/streamer/user-state?file_id=&viewer_id=` | Live — resume position |
 
 Standalone bins (optional): `ems-upload` `:8085`, `ems-listing` `:8086`, `ems-streaming` `:8087`, `ims-processor` `:8088`.
 
@@ -160,9 +162,9 @@ backend/
     ports/          # VideoRepository, ObjectStore, SessionStore, EventPublisher
     adapters/       # postgres, redis, s3/, kafka
     migrations/     # videos table + hot-path indexes
-  ems/listing/      # stub router
-  ems/streaming/    # stub router
-  ims/processor/    # stub worker
+  ems/listing/      # catalog: /lister/videos + /lister/links
+  ems/streaming/    # GET /streamer/stream + watch progress
+  ims/processor/    # Kafka → FFmpeg HLS
 ```
 
 Upload wiring: handlers → use cases → **ports**; IO only in **adapters**. Migrations run on EMS/upload startup via sqlx.

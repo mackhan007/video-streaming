@@ -93,6 +93,7 @@ export function UploadWorkbench() {
             <VideoPlayer
               src={pipeline.stream.master_playlist_url}
               title={pipeline.status?.title}
+              fileId={pipeline.stream.file_id}
             />
           ) : null}
         </div>

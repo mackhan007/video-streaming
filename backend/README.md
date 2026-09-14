@@ -15,9 +15,9 @@ cargo build -p ems-server
 |---|---|---|
 | `ems-server` | `ems` | Unified EMS on `EMS_HTTP_PORT` (default 8080) |
 | `ems-upload` | `ems-upload` | Upload lib + standalone server (`HTTP_PORT`, default 8085) |
-| `ems-listing` | `ems-listing` | Listing stub (`501`) |
-| `ems-streaming` | `ems-streaming` | Streaming stub (`501`) |
-| `ims-processor` | `ims-processor` | Worker stub (health only) |
+| `ems-listing` | `ems-listing` | Listing catalog (`/lister/videos`, `/lister/links`) |
+| `ems-streaming` | `ems-streaming` | Streaming + watch progress (`GET /streamer/stream`) |
+| `ims-processor` | `ims-processor` | Kafka → FFmpeg HLS worker |
 | `shared` | — | `VideoId`, `VideoStatus`, `VideoUploaded`, `logging::init` |
 
 ## Upload internals
