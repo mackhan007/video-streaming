@@ -1,0 +1,16 @@
+---
+description: >-
+  When the user says "commit past changes", split the session's work into one
+  conventional commit per completed task (see docs/wiki/commit-past-changes.md).
+alwaysApply: true
+---
+
+# Commit past changes
+
+If the user asks to **commit past changes** (or equivalent: commit each task / session work separately):
+
+1. Follow **`docs/wiki/commit-past-changes.md`** exactly.
+2. One **commitlint-valid** commit per completed task; path-scoped staging.
+3. Do not squash everything into a single commit.
+4. Do not push unless asked.
+5. **Never** add `Co-authored-by` (or other git trailers) unless the user explicitly asks. Strip them if a tool injects them before finishing.

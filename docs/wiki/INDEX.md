@@ -18,6 +18,7 @@ Human overview: [README.md](../../README.md) · Runbook: [local-setup.md](../loc
 | Env vars & ports                         | [env-and-ports.md](env-and-ports.md) |
 | Docker / LocalStack / nginx              | [infra.md](infra.md)                 |
 | Coding conventions (SOLID, 200 lines, …) | [conventions.md](conventions.md)     |
+| **Commit past changes** (one commit per task) | [commit-past-changes.md](commit-past-changes.md) |
 | Commit message linting ([commitlint](https://commitlint.js.org/)) | [../commitlint.md](../commitlint.md) |
 | React uploader UI                         | [frontend.md](frontend.md)           |
 | Dev script (EMS + frontend)              | [frontend.md](frontend.md) · `scripts/dev.sh` |

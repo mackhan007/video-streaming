@@ -1,5 +1,10 @@
 .DS_Store
 volume/
 .env
-.cursor
+.cursor/*
+!.cursor/skills/
+!.cursor/skills/**
+!.cursor/rules/
+!.cursor/rules/**
 node_modules/
+logs/

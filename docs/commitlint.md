@@ -24,6 +24,8 @@ chore: add commitlint
 
 Allowed types: `build`, `chore`, `ci`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, `style`, `test`.
 
+Do **not** append `Co-authored-by` or other trailers unless the user explicitly asks.
+
 ## Manual check
 
 ```bash
