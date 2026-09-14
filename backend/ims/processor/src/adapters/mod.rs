@@ -1,5 +1,11 @@
 pub mod ffmpeg;
+pub mod ffmpeg_abr;
 pub mod ffmpeg_args;
+pub mod ffmpeg_chunk_ladder;
+pub mod ffmpeg_chunked;
+pub mod ffmpeg_merge;
+pub mod ffmpeg_plan;
+pub mod ffmpeg_probe;
 pub mod hls_files;
 pub mod kafka_consumer;
 pub mod ladder;
@@ -7,10 +13,12 @@ pub mod master_playlist;
 pub mod media_sniff;
 pub mod pipeline;
 pub mod postgres;
+pub mod postgres_jobs;
 pub mod s3;
 
 pub use ffmpeg::FfmpegHls;
 pub use kafka_consumer::KafkaWorker;
 pub use pipeline::PostgresPipeline;
 pub use postgres::PostgresVideos;
+pub use postgres_jobs::PostgresEncodeJobs;
 pub use s3::S3Objects;

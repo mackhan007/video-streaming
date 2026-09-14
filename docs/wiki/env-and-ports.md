@@ -1,7 +1,7 @@
 # Env and ports
 
 Templates: `docs/local-setup/.env.template` · loader: `docs/local-setup/export.sh`  
-Config parse: `backend/ems/upload/src/config.rs`
+Config parse: `backend/ems/upload/src/config.rs` · IMS: `backend/ims/processor/src/config.rs`
 
 ## App ports
 
@@ -11,7 +11,7 @@ Config parse: `backend/ems/upload/src/config.rs`
 | `HTTP_PORT` | 8085 | `ems-upload` alone |
 | `LISTING_HTTP_PORT` | 8086 | listing stub |
 | `STREAMING_HTTP_PORT` | 8087 | streaming |
-| `PROCESSOR_HTTP_PORT` | 8088 | IMS processor |
+| `PROCESSOR_HTTP_PORT` | 8088 | IMS processor (first worker; extras are +1, +2, …) |
 
 ## Required / common
 
@@ -34,9 +34,13 @@ Config parse: `backend/ems/upload/src/config.rs`
 | `PRESIGN_TTL_SECS` | `3600` |
 | `SESSION_TTL_SECS` | `86400` |
 | `CDN_BASE_URL` | `http://localhost:8081` |
-| `HLS_SEGMENT_SECS` | `6` — IMS FFmpeg segment length |
+| `HLS_SEGMENT_SECS` | `6` — IMS FFmpeg HLS segment length |
+| `IMS_CHUNK_SECS` | `60` (Helm local: `90`) — long-file time slice for parallel FFmpeg |
+| `IMS_ENCODE_PARALLEL` | `0` — max concurrent FFmpeg jobs (`0` = CPU count clamped 4–16). Helm local: `2` (packed ladder is heavier per job) |
+| `FFMPEG_PRESET` | `veryfast` (Helm local: `ultrafast`) |
+| `IMS_WORKERS` | `3` — extra IMS processes from `scripts/dev.sh` |
 | `FFMPEG_PATH` | `ffmpeg` |
-| `IMS_WORK_DIR` | `/tmp/ims-processor` |
+| `IMS_WORK_DIR` | `/tmp/ims-processor` (dev.sh suffixes `-{port}` per worker) |
 | `RUST_LOG` | see template (debug for app crates) |
 | `LOG_DIR` | `logs` (export.sh → `<repo>/logs`) — file logs beside stdout |
 | `LOG_NAME` | optional override for `{LOG_DIR}/{name}.log` (default: binary name) |

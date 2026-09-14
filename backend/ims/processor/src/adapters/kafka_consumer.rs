@@ -8,7 +8,9 @@ use shared::VideoUploaded;
 use tracing::{error, info, warn};
 
 use crate::app::process_uploaded::ProcessUploaded;
-use crate::ports::{HlsTranscoder, ObjectStore, PipelineRepository, VideoRepository};
+use crate::ports::{
+    EncodeJobRepository, HlsTranscoder, ObjectStore, PipelineRepository, VideoRepository,
+};
 
 pub struct KafkaWorker {
     consumer: StreamConsumer,
@@ -25,15 +27,19 @@ impl KafkaWorker {
         objects: Arc<dyn ObjectStore>,
         transcoder: Arc<dyn HlsTranscoder>,
         pipeline: Arc<dyn PipelineRepository>,
+        jobs: Arc<dyn EncodeJobRepository>,
         work_dir: String,
         segment_secs: u32,
+        chunk_secs: f64,
+        ffmpeg_path: String,
     ) -> anyhow::Result<Self> {
         let consumer: StreamConsumer = ClientConfig::new()
             .set("bootstrap.servers", bootstrap)
             .set("group.id", group)
             .set("enable.auto.commit", "false")
             .set("auto.offset.reset", "earliest")
-            .set("session.timeout.ms", "10000")
+            .set("session.timeout.ms", "45000")
+            .set("max.poll.interval.ms", "86400000")
             .set("broker.address.family", "v4")
             .create()?;
         consumer.subscribe(&[topic])?;
@@ -46,8 +52,11 @@ impl KafkaWorker {
                 objects,
                 transcoder,
                 pipeline,
+                jobs,
                 work_dir,
                 segment_secs,
+                chunk_secs,
+                ffmpeg_path,
             },
         })
     }

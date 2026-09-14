@@ -5,9 +5,12 @@ use shared::{PipelineStepName, PipelineStepState, VideoUploaded};
 use thiserror::Error;
 use tracing::{info, warn};
 
-use crate::adapters::hls_files::relative_hls_key;
+use crate::adapters::hls_files::{hls_content_type, relative_hls_key};
 use crate::adapters::media_sniff::sniff_video;
 use crate::adapters::pipeline::{track, track_abr};
+use crate::app::enqueue_chunks::enqueue_if_chunked;
+use crate::app::reuse_batch::skip_if_batch_live;
+use crate::ports::encode_jobs::EncodeJobRepository;
 use crate::ports::{HlsTranscoder, ObjectStore, PipelineRepository, VideoRepository};
 
 #[derive(Debug, Error)]
@@ -22,13 +25,17 @@ pub enum ProcessError {
     Io(#[from] std::io::Error),
 }
 
+#[derive(Clone)]
 pub struct ProcessUploaded {
     pub videos: Arc<dyn VideoRepository>,
     pub objects: Arc<dyn ObjectStore>,
     pub transcoder: Arc<dyn HlsTranscoder>,
     pub pipeline: Arc<dyn PipelineRepository>,
+    pub jobs: Arc<dyn EncodeJobRepository>,
     pub work_dir: String,
     pub segment_secs: u32,
+    pub chunk_secs: f64,
+    pub ffmpeg_path: String,
 }
 
 impl ProcessUploaded {
@@ -38,6 +45,9 @@ impl ProcessUploaded {
             info!(%file_id, "skip — not claimable (ready/deleted/pending)");
             return Ok(());
         };
+        if skip_if_batch_live(&self.jobs, self.pipeline.as_ref(), file_id).await? {
+            return Ok(());
+        }
 
         track(
             self.pipeline.as_ref(),
@@ -76,10 +86,14 @@ impl ProcessUploaded {
         let result = self
             .run_pipeline(&row.object_key, &source, &hls_dir, file_id)
             .await;
-        let _ = tokio::fs::remove_dir_all(&job_dir).await;
 
         match result {
-            Ok(playback_path) => {
+            Ok(None) => {
+                info!(%file_id, "chunk jobs queued — replicas will encode");
+                Ok(())
+            }
+            Ok(Some(playback_path)) => {
+                let _ = tokio::fs::remove_dir_all(&job_dir).await;
                 self.videos.mark_ready(file_id, &playback_path).await?;
                 track(
                     self.pipeline.as_ref(),
@@ -111,6 +125,7 @@ impl ProcessUploaded {
                 Ok(())
             }
             Err(e) => {
+                let _ = tokio::fs::remove_dir_all(&job_dir).await;
                 warn!(error = %e, %file_id, "pipeline failed — marking failed");
                 let _ = self.videos.mark_failed(file_id).await;
                 track(
@@ -141,12 +156,24 @@ impl ProcessUploaded {
         source: &PathBuf,
         hls_dir: &PathBuf,
         file_id: shared::VideoId,
-    ) -> Result<String, ProcessError> {
+    ) -> Result<Option<String>, ProcessError> {
         self.objects.download_to_path(object_key, source).await?;
         let kind = sniff_video(source).await?;
         let named = source.with_extension(kind);
         if named != *source {
             tokio::fs::rename(source, &named).await?;
+        }
+        if enqueue_if_chunked(
+            &self.jobs,
+            &self.ffmpeg_path,
+            self.chunk_secs,
+            &named,
+            file_id,
+            object_key,
+        )
+        .await?
+        {
+            return Ok(None);
         }
         let out = self
             .transcoder
@@ -157,19 +184,10 @@ impl ProcessUploaded {
         for path in &out.files {
             let rel = relative_hls_key(hls_dir, path);
             let key = format!("{prefix}/{rel}");
-            let ct = content_type(&rel);
-            self.objects.upload_file(&key, path, ct).await?;
+            self.objects
+                .upload_file(&key, path, hls_content_type(&rel))
+                .await?;
         }
-        Ok(format!("{prefix}/master.m3u8"))
-    }
-}
-
-fn content_type(name: &str) -> &'static str {
-    if name.ends_with(".m3u8") {
-        "application/vnd.apple.mpegurl"
-    } else if name.ends_with(".ts") {
-        "video/mp2t"
-    } else {
-        "application/octet-stream"
+        Ok(Some(format!("{prefix}/master.m3u8")))
     }
 }

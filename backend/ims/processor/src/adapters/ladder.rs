@@ -12,7 +12,7 @@ pub struct LadderRung {
     pub audio_bitrate: &'static str,
 }
 
-/// 360p / 720p / 1080p ladder (one FFmpeg process per rung).
+/// 360p / 720p / 1080p ladder (packed chunk encode uses one FFmpeg for all rungs).
 pub const DEFAULT_LADDER: &[LadderRung] = &[
     LadderRung {
         label: "360p",

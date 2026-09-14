@@ -43,3 +43,5 @@ cd backend && cargo run -p ems-server --bin ems
 ```
 
 System cargo (`~/.cargo/bin`). macOS: `brew install cmake` for rdkafka.
+
+Local: `IMS_WORKERS` extra IMS binaries ([frontend.md](frontend.md) / `scripts/dev.sh`). K8s: [helm.md](helm.md).

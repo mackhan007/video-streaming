@@ -49,3 +49,13 @@ pub fn relative_hls_key(hls_dir: &Path, path: &Path) -> String {
                 .to_string()
         })
 }
+
+pub fn hls_content_type(name: &str) -> &'static str {
+    if name.ends_with(".m3u8") {
+        "application/vnd.apple.mpegurl"
+    } else if name.ends_with(".ts") {
+        "video/mp2t"
+    } else {
+        "application/octet-stream"
+    }
+}

@@ -6,18 +6,25 @@ use tokio::process::Command;
 use tokio::task::JoinSet;
 use tracing::{debug, info, warn};
 
-use crate::adapters::ffmpeg_args::build_rung_args;
+use crate::adapters::ffmpeg_args::{build_rung_args, EncodeOpts};
+use crate::adapters::ffmpeg_abr::{encode_chunked_abr, encode_full_abr};
+use crate::adapters::ffmpeg_plan::should_chunk;
+use crate::adapters::ffmpeg_probe::{ffprobe_bin, probe_duration_secs};
 use crate::adapters::hls_files::collect_hls_tree;
 use crate::adapters::ladder::{LadderRung, DEFAULT_LADDER};
 use crate::adapters::master_playlist::write_master;
 use crate::ports::transcoder::{HlsOutput, HlsTranscoder, TranscodeError};
 
+#[derive(Clone)]
 pub struct FfmpegHls {
     pub ffmpeg_path: String,
+    pub chunk_secs: f64,
+    pub encode_parallel: usize,
+    pub preset: String,
 }
 
 impl FfmpegHls {
-    async fn run_ffmpeg(bin: &str, args: &[String]) -> Result<(), TranscodeError> {
+    pub(crate) async fn run_ffmpeg(bin: &str, args: &[String]) -> Result<(), TranscodeError> {
         debug!(?args, "ffmpeg invoke");
         let out = Command::new(bin)
             .args(args)
@@ -35,7 +42,7 @@ impl FfmpegHls {
         Err(TranscodeError::Ffmpeg(summarize_ffmpeg_stderr(&stderr)))
     }
 
-    async fn encode_rungs_parallel(
+    pub(crate) async fn encode_rungs_parallel(
         &self,
         input: &Path,
         out_dir: &Path,
@@ -45,7 +52,14 @@ impl FfmpegHls {
     ) -> Result<(), TranscodeError> {
         let mut set = JoinSet::new();
         for (i, rung) in ladder.iter().enumerate() {
-            let args = build_rung_args(input, out_dir, i, segment_secs, rung, with_audio)?;
+            let variant = out_dir.join(format!("v{i}"));
+            let opts = EncodeOpts {
+                preset: &self.preset,
+                start_secs: None,
+                duration_secs: None,
+                threads: 0,
+            };
+            let args = build_rung_args(input, &variant, segment_secs, rung, with_audio, &opts)?;
             let bin = self.ffmpeg_path.clone();
             let label = rung.label;
             set.spawn(async move {
@@ -68,7 +82,7 @@ impl FfmpegHls {
         Ok(())
     }
 
-    async fn reset_variant_dirs(out_dir: &Path, n: usize) -> Result<(), TranscodeError> {
+    pub(crate) async fn reset_variant_dirs(out_dir: &Path, n: usize) -> Result<(), TranscodeError> {
         for i in 0..n {
             let d = out_dir.join(format!("v{i}"));
             let _ = tokio::fs::remove_dir_all(&d).await;
@@ -135,23 +149,20 @@ impl HlsTranscoder for FfmpegHls {
         Self::ensure_variant_dirs(out_dir, ladder.len()).await?;
         let master = out_dir.join("master.m3u8");
         let labels: Vec<_> = ladder.iter().map(|r| r.label).collect();
+        let probe = ffprobe_bin(&self.ffmpeg_path);
+        let duration = probe_duration_secs(&probe, input).await.ok();
+        let use_chunks = duration
+            .map(|d| should_chunk(d, self.chunk_secs))
+            .unwrap_or(false);
 
-        let with_audio = match self
-            .encode_rungs_parallel(input, out_dir, segment_secs, ladder, true)
-            .await
-        {
-            Ok(()) => true,
-            Err(e) => {
-                warn!(error = %e, "parallel abr with audio failed; retry without audio");
-                Self::reset_variant_dirs(out_dir, ladder.len()).await?;
-                self.encode_rungs_parallel(input, out_dir, segment_secs, ladder, false)
-                    .await?;
-                false
-            }
+        let with_audio = if use_chunks {
+            encode_chunked_abr(self, input, out_dir, segment_secs, duration.unwrap()).await?
+        } else {
+            encode_full_abr(self, input, out_dir, segment_secs).await?
         };
 
         write_master(out_dir, ladder, with_audio).await?;
-        info!(?labels, parallel = true, with_audio, "abr hls ok");
+        info!(?labels, chunked = use_chunks, with_audio, "abr hls ok");
         collect_hls_tree(out_dir, &master).await
     }
 }

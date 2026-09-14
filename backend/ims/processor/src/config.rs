@@ -15,6 +15,9 @@ pub struct Config {
     pub hls_segment_secs: u32,
     pub ffmpeg_path: String,
     pub work_dir: String,
+    pub chunk_secs: f64,
+    pub encode_parallel: usize,
+    pub ffmpeg_preset: String,
 }
 
 impl Config {
@@ -34,8 +37,22 @@ impl Config {
             hls_segment_secs: env_or("HLS_SEGMENT_SECS", "6").parse()?,
             ffmpeg_path: env_or("FFMPEG_PATH", "ffmpeg"),
             work_dir: env_or("IMS_WORK_DIR", "/tmp/ims-processor"),
+            chunk_secs: env_or("IMS_CHUNK_SECS", "60").parse()?,
+            encode_parallel: parse_parallel()?,
+            ffmpeg_preset: env_or("FFMPEG_PRESET", "veryfast"),
         })
     }
+}
+
+fn parse_parallel() -> anyhow::Result<usize> {
+    let raw = env_or("IMS_ENCODE_PARALLEL", "0");
+    let n: usize = raw.parse()?;
+    if n > 0 {
+        return Ok(n);
+    }
+    Ok(std::thread::available_parallelism()
+        .map(|p| p.get().clamp(4, 16))
+        .unwrap_or(4))
 }
 
 fn env_or(key: &str, default: &str) -> String {

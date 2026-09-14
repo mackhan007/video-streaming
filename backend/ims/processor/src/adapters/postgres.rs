@@ -10,7 +10,7 @@ pub struct PostgresVideos {
 }
 
 impl PostgresVideos {
-    pub async fn connect(database_url: &str) -> anyhow::Result<Self> {
+pub async fn connect(database_url: &str) -> anyhow::Result<Self> {
         let pool = PgPoolOptions::new()
             .max_connections(10)
             .connect(database_url)
@@ -21,6 +21,15 @@ impl PostgresVideos {
 
     pub fn pool(&self) -> PgPool {
         self.pool.clone()
+    }
+
+    pub async fn migrate(&self) -> anyhow::Result<()> {
+        // Re-expand when files in `ems/upload/migrations/` change (path is outside this crate).
+        sqlx::migrate!("../../ems/upload/migrations")
+            .run(&self.pool)
+            .await?;
+        info!("ims sqlx migrations complete");
+        Ok(())
     }
 }
 
