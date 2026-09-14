@@ -22,6 +22,7 @@ export type RunUploadCallbacks = {
   onPhase: (phase: UploadPhase) => void;
   onProgress: (p: PutProgress) => void;
   onFileId: (fileId: string) => void;
+  onResolvedFile?: (file: File) => void;
 };
 
 const ALLOWED = new Set([
@@ -49,7 +50,8 @@ export async function runUpload(
   cb: RunUploadCallbacks,
 ): Promise<CompleteUploadResponse> {
   cb.onPhase("requesting");
-  await assertVideoFile(file);
+  file = await assertVideoFile(file);
+  cb.onResolvedFile?.(file);
   const session = await uploadApi.create({
     fileSize: file.size,
     title: title.trim() || undefined,

@@ -1,33 +1,59 @@
-/** Reject non-video containers before EMS create (ZIP disguised as .mp4, etc.). */
-export async function assertVideoFile(file: File): Promise<void> {
-  const buf = new Uint8Array(await file.slice(0, 16).arrayBuffer());
-  if (buf.length < 4) {
-    throw new Error("File is empty or unreadable");
-  }
-  // ZIP
-  if (buf[0] === 0x50 && buf[1] === 0x4b) {
-    throw new Error(
-      "That file is a ZIP archive, not a video. Upload an .mp4 / .webm / .mov / .mkv.",
-    );
-  }
-  // ISO BMFF (mp4 / mov): ....ftyp
-  if (
-    buf.length >= 8 &&
-    buf[4] === 0x66 &&
-    buf[5] === 0x74 &&
-    buf[6] === 0x79 &&
-    buf[7] === 0x70
-  ) {
-    return;
-  }
-  // Matroska / WebM EBML
-  if (
+import { unwrapZipVideo } from "./unwrapZipVideo";
+
+/** Reject non-video containers; unwrap a stored video inside a ZIP named .mp4. */
+
+const ISO_BOXES = new Set(["ftyp", "mdat", "moov", "free", "skip", "wide", "pnot"]);
+
+function boxType(buf: Uint8Array, offset: number): string {
+  if (buf.length < offset + 4) return "";
+  return String.fromCharCode(
+    buf[offset],
+    buf[offset + 1],
+    buf[offset + 2],
+    buf[offset + 3],
+  );
+}
+
+function isIsoBmff(buf: Uint8Array): boolean {
+  return buf.length >= 8 && ISO_BOXES.has(boxType(buf, 4));
+}
+
+function isEbml(buf: Uint8Array): boolean {
+  return (
+    buf.length >= 4 &&
     buf[0] === 0x1a &&
     buf[1] === 0x45 &&
     buf[2] === 0xdf &&
     buf[3] === 0xa3
-  ) {
-    return;
+  );
+}
+
+function isZipMagic(buf: Uint8Array): boolean {
+  return (
+    buf.length >= 4 &&
+    buf[0] === 0x50 &&
+    buf[1] === 0x4b &&
+    (buf[2] === 0x03 || buf[2] === 0x05 || buf[2] === 0x07)
+  );
+}
+
+export async function assertVideoFile(
+  file: File,
+  depth = 0,
+): Promise<File> {
+  const buf = new Uint8Array(await file.slice(0, 32).arrayBuffer());
+  if (buf.length < 4) {
+    throw new Error("File is empty or unreadable");
+  }
+  // ISO BMFF first: a ~1GB mdat box size is 0x50 0x4B … and looks like "PK".
+  if (isIsoBmff(buf) || isEbml(buf)) return file;
+  if (isZipMagic(buf)) {
+    if (depth > 0) {
+      throw new Error(
+        "That file is a ZIP archive, not a video. Upload an .mp4 / .webm / .mov / .mkv.",
+      );
+    }
+    return assertVideoFile(await unwrapZipVideo(file), depth + 1);
   }
   throw new Error(
     "File does not look like a video (need mp4 / webm / mov / mkv).",

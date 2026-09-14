@@ -144,6 +144,14 @@ export function useVideoUpload() {
             totalBytes: p.totalBytes,
           })),
         onFileId: (fileId) => setState((s) => ({ ...s, fileId })),
+        onResolvedFile: (resolved) => {
+          draft.current.file = resolved;
+          setState((s) => ({
+            ...s,
+            file: resolved,
+            totalBytes: resolved.size,
+          }));
+        },
       });
       setState((s) => ({ ...s, result, phase: "done" }));
     } catch (e) {
