@@ -14,6 +14,7 @@ docker compose -f docker/docker-compose.yml up -d
 | `postgres` | 5432 | Video repository |
 | `redis` | 6379 | Upload sessions |
 | `kafka` | 9092 / 29092 | Event publisher |
+| `kafka-init` | (oneshot) | Create/alter `video.uploaded` to **12 partitions** |
 | `nginx` | 8081, 9008 | CDN + StackPort proxy |
 
 ## Init / config files
@@ -22,6 +23,9 @@ docker compose -f docker/docker-compose.yml up -d
 |---|---|
 | `docker/localstack/init/ready.d/01-create-videos-bucket.sh` | Create `videos` + CORS |
 | `docker/nginx/nginx.conf` | `/videos/` → LocalStack; `:9008` UI |
+| `docker/kafka/create-topic.sh` | `video.uploaded` × 12 partitions (IMS consumer scale) |
+
+K8s (Docker Desktop): [helm.md](helm.md) · `./scripts/k8s-up.sh` (includes pgweb `:8082` + StackPort `:9008`). Extra local IMS processes on the host: `IMS_WORKERS` in [env-and-ports.md](env-and-ports.md).
 
 ## S3 key layout
 

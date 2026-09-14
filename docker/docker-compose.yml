@@ -154,6 +154,17 @@ services:
       kafka:
         condition: service_healthy
 
+  kafka-init:
+    image: apache/kafka:3.9.1
+    container_name: kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./kafka/create-topic.sh:/create-topic.sh:ro
+    entrypoint: ["/bin/bash", "/create-topic.sh"]
+    restart: "no"
+
   nginx:
     image: nginx:1.27-alpine
     container_name: nginx

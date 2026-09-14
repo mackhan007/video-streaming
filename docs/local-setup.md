@@ -73,7 +73,7 @@ Migrations (videos + indexes) apply automatically when EMS/upload starts.
 ### Redis / Kafka
 
 Redis: no password (`localhost:6379`).  
-Kafka topic `video.uploaded` auto-creates on first publish (`localhost:9092`).
+Kafka topic `video.uploaded` is created/altered to **12 partitions** by compose `kafka-init` (`localhost:9092`) so several IMS consumers can share work.
 
 ## Env
 
@@ -92,7 +92,7 @@ Presigned browser/curl uploads must use **`S3_PUBLIC_ENDPOINT=http://localhost:4
 With infra up:
 
 ```bash
-npm run dev          # EMS :8080 + IMS :8088 + Vite :5173 (scripts/dev.sh)
+npm run dev          # EMS :8080 + IMS × IMS_WORKERS (default 3 on 8088+) + Vite :5173
 ```
 
 Requires **ffmpeg** on `PATH` (or `FFMPEG_PATH`) for HLS chunking.
@@ -104,6 +104,16 @@ cd frontend && npm install && npm run dev
 ```
 
 Open http://localhost:5173. Details: [wiki/frontend.md](wiki/frontend.md).
+
+## Kubernetes (Docker Desktop)
+
+Enable Kubernetes in Docker Desktop, then:
+
+```bash
+./scripts/k8s-up.sh
+```
+
+Uploader: http://127.0.0.1:5173 · pgweb: http://127.0.0.1:8082 · StackPort: http://127.0.0.1:9008 — [wiki/helm.md](wiki/helm.md).
 
 ## Run EMS (system cargo)
 
@@ -179,10 +189,12 @@ backend/
   ems/upload/                # upload lib + bin; migrations/
   ems/listing/               # stub
   ems/streaming/             # stub
-  ims/processor/             # stub
+  ims/processor/             # Kafka → chunked FFmpeg HLS
   Dockerfile                 # release image → ems :8080
+  Dockerfile.ims             # release image → ims-processor
 docker/
   docker-compose.yml
+  kafka/create-topic.sh      # video.uploaded × 12 partitions
   localstack/init/ready.d/   # bucket videos + CORS
   nginx/nginx.conf           # :8081 CDN, :9008 StackPort
 docs/local-setup.md
@@ -193,6 +205,7 @@ docs/local-setup/
   config / credentials       # AWS profile localstack
 .cursor/skills/              # project agent skills
 diagrams/
-frontend/                   # React uploader (Vite :5173)
-helm/ scale-test/           # stubs
+frontend/                    # React uploader (Vite :5173)
+helm/streaming/              # K8s chart ([wiki/helm.md](wiki/helm.md))
+scripts/k8s-up.sh            # build images + helm install + port-forward
 ```
