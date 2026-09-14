@@ -229,8 +229,8 @@ docs/              # local-setup.md + wiki/ + .env helpers
 docs/wiki/         # code map — start at INDEX.md
 diagrams/          # HLD.png, LLD.png
 .cursor/skills/    # code-wiki, file-size-limit, solid, patterns, million-tps
-frontend/          # empty
-helm/              # empty
+frontend/          # React uploader (Vite :5173)
+helm/streaming/    # K8s full stack (see docs/wiki/helm.md)
 scale-test/        # empty
 ```
 

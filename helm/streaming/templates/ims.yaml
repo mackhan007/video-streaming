@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "streaming.name" . }}-ims
+  labels:
+    {{- include "streaming.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ims
+spec:
+  replicas: {{ .Values.replicaCount.ims }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: ims
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: ims
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: ims
+          image: {{ .Values.image.ims }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8088
+              name: health
+          envFrom:
+            - configMapRef:
+                name: {{ include "streaming.name" . }}-env
+          env:
+            - name: PROCESSOR_HTTP_PORT
+              value: "8088"
+            - name: IMS_WORK_DIR
+              value: /tmp/ims-processor
+          resources:
+            {{- toYaml .Values.resources.ims | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: health
+            initialDelaySeconds: 8
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: health
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "streaming.name" . }}-ims
+  labels:
+    {{- include "streaming.labels" . | nindent 4 }}
+spec:
+  selector:
+    app.kubernetes.io/component: ims
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - port: {{ .Values.service.imsPort }}
+      targetPort: health
+{{- if .Values.ims.hpa.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "streaming.name" . }}-ims
+  labels:
+    {{- include "streaming.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "streaming.name" . }}-ims
+  minReplicas: {{ .Values.ims.hpa.minReplicas }}
+  maxReplicas: {{ .Values.ims.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.ims.hpa.cpuPercent }}
+{{- end }}

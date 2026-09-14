@@ -13,15 +13,16 @@ Human overview: [README.md](../../README.md) · Runbook: [local-setup.md](../loc
 | Unified EMS (`ems`) routes & wiring      | [ems-server.md](ems-server.md)       |
 | Upload flow, ports, adapters             | [ems-upload.md](ems-upload.md)       |
 | Listing / streaming stubs                | [ems-stubs.md](ems-stubs.md)         |
-| IMS processor stub                       | [ims-processor.md](ims-processor.md) |
+| IMS processor (FFmpeg / Kafka workers)   | [ims-processor.md](ims-processor.md) |
 | Postgres schema & indexes                | [data-model.md](data-model.md)       |
 | Env vars & ports                         | [env-and-ports.md](env-and-ports.md) |
 | Docker / LocalStack / nginx              | [infra.md](infra.md)                 |
+| Helm / Kubernetes (full stack)           | [helm.md](helm.md)                   |
 | Coding conventions (SOLID, 200 lines, …) | [conventions.md](conventions.md)     |
 | **Commit past changes** (one commit per task) | [commit-past-changes.md](commit-past-changes.md) |
 | Commit message linting ([commitlint](https://commitlint.js.org/)) | [../commitlint.md](../commitlint.md) |
 | React uploader UI                         | [frontend.md](frontend.md)           |
-| Dev script (EMS + frontend)              | [frontend.md](frontend.md) · `scripts/dev.sh` |
+| Dev script (EMS + IMS workers + UI)      | [frontend.md](frontend.md) · `scripts/dev.sh` |
 
 ## Route by path prefix
 
@@ -34,10 +35,12 @@ Human overview: [README.md](../../README.md) · Runbook: [local-setup.md](../loc
 | `backend/shared/`                     | [architecture.md](architecture.md)   |
 | `backend/ems/upload/migrations/`      | [data-model.md](data-model.md)       |
 | `docker/`                             | [infra.md](infra.md)                 |
+| `helm/`                               | [helm.md](helm.md)                   |
 | `docs/local-setup/`                   | [env-and-ports.md](env-and-ports.md) |
 | `.cursor/skills/`                     | [conventions.md](conventions.md)     |
 | `frontend/`                             | [frontend.md](frontend.md)           |
 | `scripts/dev.sh`                        | [frontend.md](frontend.md)           |
+| `scripts/k8s-up.sh` · `helm/`           | [helm.md](helm.md)                   |
 | `LICENSE`                             | MIT — root [LICENSE](../../LICENSE)  |
 
 ## Agent habit

@@ -1,0 +1,41 @@
+# Docker Desktop / laptop overlay — smaller IMS, no HPA, local images.
+replicaCount:
+  ems: 1
+  ims: 2
+
+image:
+  ems: ems:latest
+  ims: ims-processor:latest
+  frontend: frontend:latest
+  pullPolicy: Never
+
+ims:
+  hpa:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 2
+    cpuPercent: 70
+  chunkSecs: 90
+  encodeParallel: 2
+  preset: ultrafast
+
+env:
+  S3_PUBLIC_ENDPOINT: http://127.0.0.1:4566
+  CDN_BASE_URL: http://127.0.0.1:8081
+
+resources:
+  ems:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  ims:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "2.5"
+      memory: 2Gi
+  frontend:
+    requests:
+      cpu: 50m
+      memory: 64Mi

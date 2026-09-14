@@ -1,0 +1,72 @@
+# Full VOD stack. Local overlay: values-local.yaml
+replicaCount:
+  ems: 1
+  ims: 2
+  frontend: 1
+
+image:
+  ems: ems:latest
+  ims: ims-processor:latest
+  frontend: frontend:latest
+  pullPolicy: IfNotPresent
+  postgres: postgres:16-alpine
+  redis: redis:7-alpine
+  kafka: apache/kafka:3.9.1
+  localstack: localstack/localstack:4.8
+  nginx: nginx:1.27-alpine
+  pgweb: sosedoff/pgweb:latest
+  stackport: davireis/stackport:latest
+
+service:
+  emsPort: 8080
+  imsPort: 8088
+  frontendPort: 80
+  cdnPort: 80
+  localstackPort: 4566
+
+ims:
+  hpa:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 4
+    cpuPercent: 70
+  chunkSecs: 90
+  encodeParallel: 2
+  preset: ultrafast
+
+postgres:
+  user: streaming
+  password: streaming
+  database: streaming
+
+kafka:
+  partitions: 12
+  clusterId: MkU3OEVBNTcwNTJENDM2Qk
+
+env:
+  KAFKA_TOPIC: video.uploaded
+  KAFKA_GROUP_ID: ims-processor
+  S3_BUCKET: videos
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+  AWS_DEFAULT_REGION: us-east-1
+  S3_PUBLIC_ENDPOINT: http://127.0.0.1:4566
+  CDN_BASE_URL: http://127.0.0.1:8081
+  HLS_SEGMENT_SECS: "6"
+
+resources:
+  ems:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  ims:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "4"
+      memory: 2Gi
+  frontend:
+    requests:
+      cpu: 50m
+      memory: 64Mi

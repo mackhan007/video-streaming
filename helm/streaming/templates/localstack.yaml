@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "streaming.name" . }}-localstack-init
+  labels:
+    {{- include "streaming.labels" . | nindent 4 }}
+data:
+  01-create-videos-bucket.sh: |
+    #!/bin/bash
+    set -euo pipefail
+    awslocal s3api head-bucket --bucket videos 2>/dev/null || awslocal s3 mb s3://videos
+    awslocal s3api put-bucket-cors --bucket videos --cors-configuration '{
+      "CORSRules": [{
+        "AllowedOrigins": ["*"],
+        "AllowedMethods": ["GET", "PUT", "POST", "HEAD", "DELETE"],
+        "AllowedHeaders": ["*"],
+        "ExposeHeaders": ["ETag", "etag", "x-amz-request-id"],
+        "MaxAgeSeconds": 3000
+      }]
+    }'
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "streaming.name" . }}-localstack
+  labels:
+    {{- include "streaming.labels" . | nindent 4 }}
+    app.kubernetes.io/component: localstack
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: localstack
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: localstack
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: localstack
+          image: {{ .Values.image.localstack }}
+          ports:
+            - containerPort: 4566
+              name: edge
+          env:
+            - name: DEBUG
+              value: "0"
+            - name: AWS_DEFAULT_REGION
+              value: {{ .Values.env.AWS_DEFAULT_REGION | quote }}
+            - name: GATEWAY_LISTEN
+              value: 0.0.0.0:4566
+            - name: DISABLE_CORS_CHECKS
+              value: "1"
+          volumeMounts:
+            - name: init
+              mountPath: /etc/localstack/init/ready.d
+            - name: data
+              mountPath: /var/lib/localstack
+          readinessProbe:
+            httpGet:
+              path: /_localstack/health
+              port: edge
+            initialDelaySeconds: 8
+            periodSeconds: 5
+      volumes:
+        - name: init
+          configMap:
+            name: {{ include "streaming.name" . }}-localstack-init
+            defaultMode: 0755
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "streaming.name" . }}-localstack
+  labels:
+    {{- include "streaming.labels" . | nindent 4 }}
+spec:
+  selector:
+    app.kubernetes.io/component: localstack
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - port: {{ .Values.service.localstackPort }}
+      targetPort: edge

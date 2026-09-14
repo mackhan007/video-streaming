@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "streaming.name" . }}-kafka-init
+  labels:
+    {{- include "streaming.labels" . | nindent 4 }}
+data:
+  create-topic.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+    BOOT="${KAFKA_BOOTSTRAP:-{{ include "streaming.name" . }}-kafka:29092}"
+    TOPIC="${KAFKA_TOPIC:-video.uploaded}"
+    PARTS="${KAFKA_PARTITIONS:-{{ .Values.kafka.partitions }}}"
+    BIN=/opt/kafka/bin/kafka-topics.sh
+    for i in $(seq 1 40); do
+      "$BIN" --bootstrap-server "$BOOT" --list >/dev/null 2>&1 && break
+      sleep 3
+    done
+    "$BIN" --bootstrap-server "$BOOT" --create --if-not-exists \
+      --topic "$TOPIC" --partitions "$PARTS" --replication-factor 1
+    "$BIN" --bootstrap-server "$BOOT" --alter --topic "$TOPIC" --partitions "$PARTS" || true
+    "$BIN" --bootstrap-server "$BOOT" --describe --topic "$TOPIC"
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "streaming.name" . }}-kafka-init
+  labels:
+    {{- include "streaming.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+    helm.sh/hook-weight: "5"
+spec:
+  backoffLimit: 8
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: kafka-init
+          image: {{ .Values.image.kafka }}
+          command: ["/bin/bash", "/create-topic.sh"]
+          env:
+            - name: KAFKA_BOOTSTRAP
+              value: {{ printf "%s-kafka:29092" (include "streaming.name" .) | quote }}
+            - name: KAFKA_TOPIC
+              value: {{ .Values.env.KAFKA_TOPIC | quote }}
+            - name: KAFKA_PARTITIONS
+              value: {{ .Values.kafka.partitions | quote }}
+          volumeMounts:
+            - name: script
+              mountPath: /create-topic.sh
+              subPath: create-topic.sh
+      volumes:
+        - name: script
+          configMap:
+            name: {{ include "streaming.name" . }}-kafka-init
+            defaultMode: 0755
