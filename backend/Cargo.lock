@@ -1008,12 +1008,19 @@ dependencies = [
 name = "ems-listing"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "async-trait",
  "axum",
+ "chrono",
  "dotenvy",
+ "serde",
  "serde_json",
  "shared",
+ "sqlx",
+ "thiserror",
  "tokio",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -1040,6 +1047,7 @@ dependencies = [
  "async-trait",
  "axum",
  "dotenvy",
+ "redis",
  "serde",
  "serde_json",
  "shared",

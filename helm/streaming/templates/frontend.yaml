@@ -13,6 +13,7 @@ data:
       index index.html;
       client_max_body_size 8m;
       location /uploader/ { proxy_pass http://{{ include "streaming.name" . }}-ems:8080; }
+      location /lister/ { proxy_pass http://{{ include "streaming.name" . }}-ems:8080; }
       location /streamer/ { proxy_pass http://{{ include "streaming.name" . }}-ems:8080; }
       location = /health { proxy_pass http://{{ include "streaming.name" . }}-ems:8080/health; }
       location = /ready { proxy_pass http://{{ include "streaming.name" . }}-ems:8080/ready; }

@@ -3,16 +3,23 @@ name = "ems-listing"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "EMS Video Listing Controller (stub)"
+description = "EMS Video Listing Controller — upload catalog and ready links"
 
 [[bin]]
 name = "ems-listing"
 path = "src/bin/ems-listing.rs"
 
 [dependencies]
+shared = { workspace = true }
 axum = { workspace = true }
 tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
 tracing = { workspace = true }
 dotenvy = { workspace = true }
-serde_json = { workspace = true }
-shared = { workspace = true }
+thiserror = { workspace = true }
+async-trait = { workspace = true }
+sqlx = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }

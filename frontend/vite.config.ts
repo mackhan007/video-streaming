@@ -8,6 +8,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/uploader": "http://localhost:8080",
+      "/lister": "http://localhost:8080",
       "/streamer": "http://localhost:8080",
       "/health": "http://localhost:8080",
       "/ready": "http://localhost:8080",

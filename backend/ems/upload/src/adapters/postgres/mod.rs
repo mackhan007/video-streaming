@@ -30,6 +30,7 @@ impl PostgresVideoRepository {
 
     pub async fn migrate(&self) -> anyhow::Result<()> {
         debug!("running sqlx migrations");
+        // Re-expand when files in `ems/upload/migrations/` change.
         sqlx::migrate!("./migrations")
             .run(&self.pool)
             .await

@@ -39,13 +39,18 @@ pub async fn build_router() -> anyhow::Result<(Router, u16)> {
         e
     })?;
 
+    let listing = ems_listing::build_router().await.map_err(|e| {
+        error!(error = %e, "listing router build failed");
+        e
+    })?;
+
     let app = apply_http_layers(
         Router::new()
             .route("/health", get(health))
             .route("/ready", get(ready))
             .with_state(upload_state.clone())
             .merge(uploader_router(upload_state))
-            .merge(ems_listing::router())
+            .merge(listing)
             .merge(streaming),
     );
 

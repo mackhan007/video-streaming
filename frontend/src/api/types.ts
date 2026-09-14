@@ -69,7 +69,30 @@ export type PipelineResponse = {
   steps: PipelineStep[];
 };
 
+export type CatalogItem = {
+  file_id: string;
+  title: string | null;
+  status: string;
+  file_size: number;
+  created_at: string;
+  updated_at: string;
+  playback_path?: string | null;
+  master_playlist_url?: string | null;
+};
+
+export type CatalogPage = {
+  items: CatalogItem[];
+  next_seen: string | null;
+};
+
 export type ApiErrorBody = {
   error?: string;
   message?: string;
+};
+
+export type WatchStateResponse = {
+  file_id: string;
+  viewer_id: string;
+  position_secs: number;
+  duration_secs: number | null;
 };

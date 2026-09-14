@@ -18,6 +18,7 @@ Applied automatically via sqlx in `PostgresVideoRepository::migrate` on EMS/uplo
 | `20240914000009_pack_ladder.sql` | `ims_encode_batches.pack_ladder` (one FFmpeg per chunk writes all rungs) |
 | `20240914000010_claim_newest.sql` | queued `(video_id, chunk_index)` + encoding `created_at DESC` claim indexes |
 | `20240914000011_encode_progress.sql` | `(video_id, rung, state)` for pipeline ABR % poll |
+| `20240914000012_listing_cursors.sql` | live / ready keyset `(created_at DESC, id DESC)` |
 
 ## `video_status`
 
@@ -51,6 +52,8 @@ API: `GET /uploader/videos/{file_id}/pipeline` (includes `started_at` / `finishe
 | PK `id` | Point get / update / stream lookup |
 | `videos_status_created_at` | Status-scoped lists |
 | `videos_ready_created_at` | Listing ready feed |
+| `videos_live_created_id` | All-upload keyset (`deleted_at IS NULL`) |
+| `videos_ready_live_created_id` | Ready-link keyset |
 | `videos_status_updated_at` | IMS queues |
 | `videos_uploaded_updated_at` | IMS claim uploaded rows |
 | `videos_processing_updated_at` | Reclaim stuck processing |
@@ -59,7 +62,8 @@ API: `GET /uploader/videos/{file_id}/pipeline` (includes `started_at` / `finishe
 
 ## Redis
 
-Key `upload:{file_id}` — JSON `UploadSession`, TTL `SESSION_TTL_SECS`.
+Key `upload:{file_id}` — JSON `UploadSession`, TTL `SESSION_TTL_SECS`.  
+Key `watch:{viewer_id}:{file_id}` — JSON watch progress, TTL `WATCH_TTL_SECS` (default 30 days).
 
 ## Kafka
 
@@ -67,4 +71,4 @@ Topic `KAFKA_TOPIC` (default `video.uploaded`). Payload: `VideoUploaded { file_i
 
 ## Distributed IMS encode (`ims_encode_jobs`)
 
-Long files: Kafka consumer **enqueues** one row per **chunk** (`pack_ladder`; one FFmpeg writes 360p/720p/1080p). All IMS replicas claim with `FOR UPDATE SKIP LOCKED` (`ims_encode_jobs_queued_video_chunk`, newest batch first). Only `videos.status = processing` is claimed. Startup heals orphaned `running` rows. Batch row `ims_encode_batches` (PK `video_id`) tracks finalize. Applied by EMS **and** IMS (`sqlx::migrate`).
+Long files (`duration > 1.5 × IMS_CHUNK_SECS`): one row per **time slice**. Shorter files: **one** job for the whole file (`duration_secs = 0`). Kafka never runs FFmpeg. ABR rungs taller than the source are skipped (no upscale). All IMS replicas claim with `FOR UPDATE SKIP LOCKED`. A claim from `uploaded` deletes the batch first (retry). Startup heals orphaned `running` rows. Batch row `ims_encode_batches` (PK `video_id`) tracks finalize. Applied by EMS **and** IMS (`sqlx::migrate`).

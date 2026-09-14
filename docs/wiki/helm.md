@@ -38,7 +38,7 @@ kubectl -n streaming logs -l app.kubernetes.io/component=ems -f
 helm uninstall streaming -n streaming
 ```
 
-Laptop defaults: 1 EMS, 2 IMS, HPA off, `imagePullPolicy: Never`, IMS `preset: ultrafast`, `chunkSecs: 90`, `encodeParallel: 2`, CPU limit `4`, IMS Deployment **Recreate** (Helm `--server-side=false` when switching from RollingUpdate). Docker Desktop Kubernetes runs in a **kind** node — `k8s-up.sh` imports local images into `desktop-control-plane`. Long files use a **packed ABR** encode (one FFmpeg per time slice, all rungs).
+Laptop defaults: 1 EMS, 3 IMS, HPA off, `imagePullPolicy: Never`, IMS `preset: ultrafast`, `chunkSecs: 60`, `encodeParallel: 2`, CPU limit `4`, IMS Deployment **Recreate** (Helm `--server-side=false` when switching from RollingUpdate). Docker Desktop Kubernetes runs in a **kind** node — `k8s-up.sh` imports local images into `desktop-control-plane`. Long files use a **packed ABR** encode (one FFmpeg per time slice; rungs taller than the source are skipped).
 
 ## Images (from source)
 
@@ -59,5 +59,5 @@ docker build -f frontend/Dockerfile -t frontend:latest frontend
 | `templates/pgweb.yaml` | Postgres browser UI (`:8082`) |
 | `templates/nginx.yaml` | CDN `/videos/` |
 | `templates/ems.yaml` · `ims.yaml` | App + IMS HPA (optional) |
-| `templates/frontend.yaml` | SPA + API proxy |
+| `templates/frontend.yaml` | SPA + API proxy (`/uploader`, `/lister`, `/streamer`) |
 | `templates/configmap.yaml` | In-cluster env |
