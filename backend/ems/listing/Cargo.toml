@@ -1,0 +1,18 @@
+[package]
+name = "ems-listing"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "EMS Video Listing Controller (stub)"
+
+[[bin]]
+name = "ems-listing"
+path = "src/bin/ems-listing.rs"
+
+[dependencies]
+axum = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+dotenvy = { workspace = true }
+serde_json = { workspace = true }
+shared = { workspace = true }

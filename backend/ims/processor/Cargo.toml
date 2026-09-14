@@ -1,0 +1,17 @@
+[package]
+name = "ims-processor"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "IMS Video Processor worker (stub)"
+
+[[bin]]
+name = "ims-processor"
+path = "src/bin/ims-processor.rs"
+
+[dependencies]
+shared = { workspace = true }
+axum = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+dotenvy = { workspace = true }

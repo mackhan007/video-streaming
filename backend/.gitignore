@@ -1,0 +1,5 @@
+/target/
+/.cargo-cache/
+**/*.rs.bk
+.DS_Store
+.env

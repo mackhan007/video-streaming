@@ -1,0 +1,41 @@
+[workspace]
+resolver = "2"
+members = [
+    "shared",
+    "ems/upload",
+    "ems/listing",
+    "ems/streaming",
+    "ems/server",
+    "ims/processor",
+]
+default-members = ["ems/server"]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+version = "0.1.0"
+
+[workspace.dependencies]
+shared = { path = "shared" }
+axum = "0.8"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "sync"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["serde", "v4"] }
+thiserror = "2"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+dotenvy = "0.15"
+chrono = { version = "0.4", features = ["serde"] }
+async-trait = "0.1"
+tower-http = { version = "0.6", features = ["cors", "trace", "request-id"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "uuid", "chrono", "migrate"] }
+aws-config = { version = "1", features = ["behavior-version-latest"] }
+aws-sdk-s3 = "1"
+aws-credential-types = "1"
+redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
+rdkafka = { version = "0.37", default-features = false, features = ["cmake-build", "tokio"] }
+http = "1"
+url = "2"
+bytes = "1"

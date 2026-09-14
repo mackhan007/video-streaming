@@ -1,0 +1,18 @@
+[package]
+name = "ems-streaming"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "EMS Video Streaming Controller (stub)"
+
+[[bin]]
+name = "ems-streaming"
+path = "src/bin/ems-streaming.rs"
+
+[dependencies]
+axum = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+dotenvy = { workspace = true }
+serde_json = { workspace = true }
+shared = { workspace = true }
