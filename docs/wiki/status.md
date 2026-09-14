@@ -8,6 +8,6 @@
 | Listing | Stub | `GET /lister/videos` → `501` |
 | Streaming | Stub | `/streamer/*` → `501` |
 | IMS processor | Stub | Health only; no Kafka consume yet |
-| Frontend | Empty | `frontend/.gitkeep` |
+| Frontend | **Uploader done** | React Vite desk — [frontend.md](frontend.md) |
 
 Suggested next slice: IMS consume `video.uploaded` → HLS → implement listing + stream URL.

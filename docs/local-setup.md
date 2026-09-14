@@ -28,6 +28,7 @@ Do **not** open raw API ports (4566, 5432, 6379, 9092) in a browser.
 | Redis Commander | http://localhost:8083 | |
 | Kafka UI | http://localhost:8084 | `video.uploaded` after first publish |
 | nginx CDN | http://localhost:8081 | `/videos/…` → LocalStack S3 |
+| **Macky Uploader** | http://localhost:5173 | React desk → EMS `:8080` (Vite proxy) |
 
 ## Host ↔ container endpoints
 
@@ -85,6 +86,22 @@ cp docs/local-setup/.env.template .env
 Important vars: `DATABASE_URL`, `REDIS_URL`, `KAFKA_BOOTSTRAP_SERVERS`, `KAFKA_TOPIC`, `AWS_ENDPOINT_URL`, `S3_PUBLIC_ENDPOINT`, `S3_BUCKET`, `EMS_HTTP_PORT`, `RUST_LOG`, `CDN_BASE_URL`.
 
 Presigned browser/curl uploads must use **`S3_PUBLIC_ENDPOINT=http://localhost:4566`**. In-container workers would use `localstack:4566` for the SDK endpoint only.
+
+## Uploader UI
+
+With infra up:
+
+```bash
+npm run dev          # EMS :8080 + Vite :5173 (scripts/dev.sh)
+```
+
+Or only the UI (EMS already running):
+
+```bash
+cd frontend && npm install && npm run dev
+```
+
+Open http://localhost:5173. Details: [wiki/frontend.md](wiki/frontend.md).
 
 ## Run EMS (system cargo)
 
@@ -172,5 +189,6 @@ docs/local-setup/
   config / credentials       # AWS profile localstack
 .cursor/skills/              # project agent skills
 diagrams/
-frontend/ helm/ scale-test/  # empty stubs
+frontend/                   # React uploader (Vite :5173)
+helm/ scale-test/           # stubs
 ```

@@ -20,7 +20,7 @@ Commit messages: [commitlint](https://commitlint.js.org/) — [docs/commitlint.m
 | Upload controller (presign → PUT S3 → complete → Kafka) | **Done** |
 | Listing / streaming controllers | **Stub** (`501 Not Implemented`) |
 | IMS processor (transcode / HLS worker) | **Stub** (health only) |
-| Frontend | **Empty** |
+| Frontend | **Uploader UI** (listing/player later) |
 
 Primary local entrypoint: **`cargo run -p ems-server --bin ems`** (system Rust toolchain).
 
@@ -48,8 +48,9 @@ docker compose -f docker/docker-compose.yml up -d
 cp docs/local-setup/.env.template .env
 ./docs/local-setup/export.sh
 
-# 3) EMS (needs rustup cargo + cmake on macOS for rdkafka)
-cd backend && cargo run -p ems-server --bin ems
+# 3) EMS + uploader UI
+npm run dev
+# → API http://localhost:8080 · UI http://localhost:5173
 ```
 
 ```bash
@@ -59,7 +60,7 @@ curl -s -X POST localhost:8080/uploader/videos \
   -d '{"file_size":1024,"content_type":"video/mp4"}'
 ```
 
-Details, ports, and UIs: [docs/local-setup.md](docs/local-setup.md).
+Details, ports, and UIs: [docs/local-setup.md](docs/local-setup.md). Uploader app: [docs/wiki/frontend.md](docs/wiki/frontend.md). Dev script: `scripts/dev.sh` (`npm run dev`).
 
 ---
 
@@ -76,7 +77,7 @@ Details, ports, and UIs: [docs/local-setup.md](docs/local-setup.md).
 | **Video Listing** | Paginated catalog | `backend/ems/listing` (stub) |
 | **Video Streaming** | Master URL + watch state | `backend/ems/streaming` (stub) |
 | **Video Processing (IMS)** | Kafka worker: transcode / HLS | `backend/ims/processor` (stub) |
-| **Frontend** | Upload, browse, play | `frontend/` (empty) |
+| **Frontend** | Upload desk (React) | `frontend/` |
 
 ### Data stores
 

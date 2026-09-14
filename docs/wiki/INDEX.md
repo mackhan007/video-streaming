@@ -19,6 +19,8 @@ Human overview: [README.md](../../README.md) · Runbook: [local-setup.md](../loc
 | Docker / LocalStack / nginx              | [infra.md](infra.md)                 |
 | Coding conventions (SOLID, 200 lines, …) | [conventions.md](conventions.md)     |
 | Commit message linting ([commitlint](https://commitlint.js.org/)) | [../commitlint.md](../commitlint.md) |
+| React uploader UI                         | [frontend.md](frontend.md)           |
+| Dev script (EMS + frontend)              | [frontend.md](frontend.md) · `scripts/dev.sh` |
 
 ## Route by path prefix
 
@@ -33,6 +35,8 @@ Human overview: [README.md](../../README.md) · Runbook: [local-setup.md](../loc
 | `docker/`                             | [infra.md](infra.md)                 |
 | `docs/local-setup/`                   | [env-and-ports.md](env-and-ports.md) |
 | `.cursor/skills/`                     | [conventions.md](conventions.md)     |
+| `frontend/`                             | [frontend.md](frontend.md)           |
+| `scripts/dev.sh`                        | [frontend.md](frontend.md)           |
 | `LICENSE`                             | MIT — root [LICENSE](../../LICENSE)  |
 
 ## Agent habit

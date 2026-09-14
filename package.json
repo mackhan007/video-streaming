@@ -4,7 +4,8 @@
   "description": "Tooling only — commitlint + husky (Rust app lives in backend/)",
   "scripts": {
     "prepare": "husky",
-    "commitlint": "commitlint --edit"
+    "commitlint": "commitlint --edit",
+    "dev": "./scripts/dev.sh"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",
