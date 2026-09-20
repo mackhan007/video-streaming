@@ -20,7 +20,7 @@ image:
 service:
   emsPort: 8080
   imsPort: 8088
-  frontendPort: 80
+  frontendPort: 5173
   cdnPort: 80
   localstackPort: 4566
 

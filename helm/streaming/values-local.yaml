@@ -3,6 +3,11 @@ replicaCount:
   ems: 1
   ims: 3
 
+service:
+  # Docker Desktop's Kubernetes auto-exposes LoadBalancer services on
+  # localhost — no kubectl port-forward needed to reach the frontend.
+  frontendType: LoadBalancer
+
 image:
   ems: ems:latest
   ims: ims-processor:latest

@@ -75,6 +75,7 @@ metadata:
   labels:
     {{- include "streaming.labels" . | nindent 4 }}
 spec:
+  type: {{ .Values.service.frontendType | default "ClusterIP" }}
   selector:
     app.kubernetes.io/component: frontend
     app.kubernetes.io/instance: {{ .Release.Name }}
