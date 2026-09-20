@@ -41,14 +41,14 @@ impl Config {
             redis_url: env_or("REDIS_URL", "redis://localhost:6379"),
             kafka_bootstrap_servers: env_or("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"),
             kafka_topic: env_or("KAFKA_TOPIC", "video.uploaded"),
-            aws_endpoint_url: env_or("AWS_ENDPOINT_URL", "http://localhost:4566"),
+            aws_endpoint_url: env_or("AWS_ENDPOINT_URL", "http://localhost:9000"),
             s3_public_endpoint: env_or(
                 "S3_PUBLIC_ENDPOINT",
-                &env_or("AWS_ENDPOINT_URL", "http://localhost:4566"),
+                &env_or("AWS_ENDPOINT_URL", "http://localhost:9000"),
             ),
             aws_region: env_or("AWS_DEFAULT_REGION", "us-east-1"),
-            aws_access_key_id: env_or("AWS_ACCESS_KEY_ID", "test"),
-            aws_secret_access_key: env_or("AWS_SECRET_ACCESS_KEY", "test"),
+            aws_access_key_id: env_or("AWS_ACCESS_KEY_ID", "minioadmin"),
+            aws_secret_access_key: env_or("AWS_SECRET_ACCESS_KEY", "minioadmin"),
             s3_bucket: env_or("S3_BUCKET", "videos"),
             upload_part_size_bytes: env_or("UPLOAD_PART_SIZE_BYTES", "16777216")
                 .parse()

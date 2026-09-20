@@ -15,7 +15,7 @@ Commit messages: [commitlint](https://commitlint.js.org/) — [docs/commitlint.m
 
 | Piece | Status |
 |---|---|
-| Docker data plane (LocalStack S3, Postgres, Redis, Kafka, nginx CDN + UIs) | **Done** |
+| Docker data plane (MinIO S3, Postgres, Redis, Kafka, nginx CDN + UIs) | **Done** |
 | Unified EMS HTTP server (`ems` on `:8080`) | **Done** |
 | Upload controller (presign → PUT S3 → complete → Kafka) | **Done** |
 | Streaming (`GET /streamer/stream` + watch progress) | **Done** |
@@ -33,7 +33,7 @@ Primary local entrypoint: **`npm run dev`** (EMS + IMS + Vite) or **`cargo run -
 2. The client calls **upload completed**. The backend checks the object exists, marks the row `uploaded`, and publishes Kafka `video.uploaded`.
 3. The **IMS processor** consumes the event, claims the row, runs **FFmpeg ABR HLS** (360p / 720p / 1080p), uploads `hls/{file_id}/`, and sets status `ready` with `playback_path`.
 4. Listing reads **Postgres** (keyset `limit` + `seen`) for all uploads and ready playback links.
-5. Playback: `GET /streamer/stream?file_id=` returns a **master playlist URL**; the player talks to **nginx** (local CDN). nginx pulls from **LocalStack S3** on cache miss.
+5. Playback: `GET /streamer/stream?file_id=` returns a **master playlist URL**; the player talks to **nginx** (local CDN). nginx pulls from **MinIO S3** on cache miss.
 
 This is **Video On Demand**. Live ingest is out of scope for the current APIs.
 
@@ -86,7 +86,7 @@ Details, ports, and UIs: [docs/local-setup.md](docs/local-setup.md). Uploader ap
 |---|---|
 | **Postgres** | Source of truth for video metadata |
 | **Redis** | Upload sessions (TTL); later hot listing cache |
-| **LocalStack S3** | Raw upload + (later) HLS objects |
+| **MinIO S3** | Raw upload + (later) HLS objects |
 | **Kafka** | `video.uploaded` after successful complete |
 | **nginx** | Local CDN cache in front of S3 (`:8081`) |
 
@@ -94,7 +94,7 @@ Details, ports, and UIs: [docs/local-setup.md](docs/local-setup.md). Uploader ap
 
 ```
 Upload (implemented)
-  Client → EMS /uploader/* → LocalStack S3 (client PUT)
+  Client → EMS /uploader/* → MinIO S3 (client PUT)
                           → Postgres (pending / uploaded)
                           → Redis (upload session)
                           → Kafka video.uploaded
@@ -105,7 +105,7 @@ Process (planned)
 List / Play
   Client → EMS /lister/*  → Postgres (keyset)
   Client → EMS /streamer/* → { master_url }
-  Player → nginx → LocalStack S3
+  Player → nginx → MinIO S3
 ```
 
 ---
@@ -180,13 +180,14 @@ Listing should only treat `ready` as playable (when implemented).
 
 ---
 
-## LocalStack (local AWS)
+## MinIO (local S3)
 
 | Setting | Local value |
 |---|---|
-| Endpoint | `http://localhost:4566` |
+| Endpoint | `http://localhost:9000` |
+| Console | `http://localhost:9001` |
 | Region | `us-east-1` |
-| Credentials | `test` / `test` |
+| Credentials | `minioadmin` / `minioadmin` |
 | Bucket | `videos` |
 | Addressing | Path-style |
 
@@ -196,7 +197,9 @@ s3://videos/hls/{file_id}/master.m3u8
 s3://videos/hls/{file_id}/720p/...
 ```
 
-Presigned URLs use `S3_PUBLIC_ENDPOINT` (usually `http://localhost:4566`) so the browser/curl can PUT. Internal SDK calls use `AWS_ENDPOINT_URL`.
+Presigned URLs use `S3_PUBLIC_ENDPOINT` (usually `http://localhost:9000`) so the browser/curl can PUT. Internal SDK calls use `AWS_ENDPOINT_URL`.
+
+LocalStack is still supported as an alternate backend (`helm/streaming/values.yaml`: `localstack.enabled: true` / `minio.enabled: false` — exactly one must be on) but isn't the local default; see [wiki/infra.md](docs/wiki/infra.md).
 
 ---
 
@@ -204,7 +207,7 @@ Presigned URLs use `S3_PUBLIC_ENDPOINT` (usually `http://localhost:4566`) so the
 
 | Choice | Why |
 |---|---|
-| Presigned S3 upload (LocalStack) | Large files skip the API; same AWS SDK as prod |
+| Presigned S3 upload (MinIO) | Large files skip the API; same AWS SDK as prod |
 | Kafka after complete | Transcode stays off the HTTP path |
 | Unified EMS process | One domain for local/lab; split bins remain for later |
 | Redis session + TTL | Stateless upload replicas |
@@ -226,7 +229,7 @@ Presigned URLs use `S3_PUBLIC_ENDPOINT` (usually `http://localhost:4566`) so the
 
 ```
 backend/           # Rust workspace (default member: ems-server)
-docker/            # Compose: LocalStack, Postgres, Redis, Kafka, nginx, UIs
+docker/            # Compose: MinIO, Postgres, Redis, Kafka, nginx, UIs
 docs/              # local-setup.md + wiki/ + .env helpers
 docs/wiki/         # code map — start at INDEX.md
 diagrams/          # HLD.png, LLD.png

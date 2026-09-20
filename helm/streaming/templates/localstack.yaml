@@ -1,3 +1,4 @@
+{{- if .Values.localstack.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -85,3 +86,4 @@ spec:
   ports:
     - port: {{ .Values.service.localstackPort }}
       targetPort: edge
+{{- end }}

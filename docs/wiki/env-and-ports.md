@@ -22,10 +22,10 @@ Config parse: `backend/ems/upload/src/config.rs` · IMS: `backend/ims/processor/
 | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` |
 | `KAFKA_TOPIC` | `video.uploaded` |
 | `KAFKA_GROUP_ID` | `ims-processor` |
-| `AWS_ENDPOINT_URL` | `http://localhost:4566` |
+| `AWS_ENDPOINT_URL` | `http://localhost:9000` (MinIO) |
 | `S3_PUBLIC_ENDPOINT` | same as AWS endpoint if unset — must be host-reachable for PUT |
 | `S3_BUCKET` | `videos` |
-| `AWS_ACCESS_KEY_ID` / `SECRET` | `test` / `test` |
+| `AWS_ACCESS_KEY_ID` / `SECRET` | `minioadmin` / `minioadmin` |
 | `AWS_DEFAULT_REGION` | `us-east-1` |
 | `MAX_UPLOAD_BYTES` | `5368709120` (5 GiB) |
 | `ALLOWED_CONTENT_TYPES` | mp4/webm/quicktime/matroska |
@@ -39,6 +39,8 @@ Config parse: `backend/ems/upload/src/config.rs` · IMS: `backend/ims/processor/
 | `IMS_CHUNK_SECS` | `60` — long-file time slice for parallel FFmpeg (`duration > 1.5 × chunk`) |
 | `IMS_ENCODE_PARALLEL` | `0` — max concurrent FFmpeg jobs (`0` = CPU count clamped 4–16). Helm local: `2` (packed ladder is heavier per job) |
 | `FFMPEG_PRESET` | `veryfast` (Helm local: `ultrafast`) |
+| `IMS_ENABLE_720P` | `true` — ABR ladder rung toggle |
+| `IMS_ENABLE_1080P` | `false` — disabling 720p drops 1080p too, regardless of this flag (see `ladder.rs`) |
 | `IMS_WORKERS` | `3` — extra IMS processes from `scripts/dev.sh` |
 | `FFMPEG_PATH` | `ffmpeg` |
 | `IMS_WORK_DIR` | `/tmp/ims-processor` (dev.sh suffixes `-{port}` per worker) |
@@ -50,7 +52,8 @@ Config parse: `backend/ems/upload/src/config.rs` · IMS: `backend/ims/processor/
 
 | Port | Service |
 |---|---|
-| 4566 | LocalStack |
+| 9000 | MinIO S3 API |
+| 9001 | MinIO console |
 | 5432 | Postgres |
 | 6379 | Redis |
 | 9092 | Kafka (host) |
@@ -58,4 +61,3 @@ Config parse: `backend/ems/upload/src/config.rs` · IMS: `backend/ims/processor/
 | 8082 | pgweb |
 | 8083 | Redis Commander |
 | 8084 | Kafka UI |
-| 9008 | LocalStack UI (via nginx) |

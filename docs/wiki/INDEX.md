@@ -17,7 +17,7 @@ Human overview: [README.md](../../README.md) · Runbook: [local-setup.md](../loc
 | IMS processor (FFmpeg / Kafka workers)   | [ims-processor.md](ims-processor.md) |
 | Postgres schema & indexes                | [data-model.md](data-model.md)       |
 | Env vars & ports                         | [env-and-ports.md](env-and-ports.md) |
-| Docker / LocalStack / nginx              | [infra.md](infra.md)                 |
+| Docker / MinIO / nginx                   | [infra.md](infra.md)                 |
 | Helm / Kubernetes (full stack)           | [helm.md](helm.md)                   |
 | Coding conventions (SOLID, 200 lines, …) | [conventions.md](conventions.md)     |
 | **Commit past changes** (one commit per task) | [commit-past-changes.md](commit-past-changes.md) |

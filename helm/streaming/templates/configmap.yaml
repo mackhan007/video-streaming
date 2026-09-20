@@ -10,8 +10,8 @@ data:
   KAFKA_BOOTSTRAP_SERVERS: {{ printf "%s-kafka:29092" (include "streaming.name" .) | quote }}
   KAFKA_TOPIC: {{ .Values.env.KAFKA_TOPIC | quote }}
   KAFKA_GROUP_ID: {{ .Values.env.KAFKA_GROUP_ID | quote }}
-  AWS_ENDPOINT_URL: {{ printf "http://%s-localstack:4566" (include "streaming.name" .) | quote }}
-  S3_PUBLIC_ENDPOINT: {{ .Values.env.S3_PUBLIC_ENDPOINT | quote }}
+  AWS_ENDPOINT_URL: {{ printf "http://%s" (include "streaming.s3Upstream" .) | quote }}
+  S3_PUBLIC_ENDPOINT: {{ .Values.env.S3_PUBLIC_ENDPOINT | default (include "streaming.s3PublicEndpoint" .) | quote }}
   S3_BUCKET: {{ .Values.env.S3_BUCKET | quote }}
   AWS_ACCESS_KEY_ID: {{ .Values.env.AWS_ACCESS_KEY_ID | quote }}
   AWS_SECRET_ACCESS_KEY: {{ .Values.env.AWS_SECRET_ACCESS_KEY | quote }}

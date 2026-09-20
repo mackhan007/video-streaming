@@ -25,9 +25,11 @@ data:
           return 200 'nginx CDN\n';
         }
         location /videos/ {
-          proxy_pass http://{{ include "streaming.name" . }}-localstack:4566/videos/;
+          proxy_pass http://{{ include "streaming.s3Upstream" . }}/videos/;
           proxy_http_version 1.1;
           proxy_set_header Host $host;
+          # MinIO answers CORS itself when Origin is set; keep only nginx's header.
+          proxy_hide_header Access-Control-Allow-Origin;
           proxy_cache videos;
           proxy_cache_valid 200 206 1d;
           add_header Access-Control-Allow-Origin * always;

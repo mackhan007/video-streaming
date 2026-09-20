@@ -13,6 +13,9 @@ image:
   redis: redis:7-alpine
   kafka: apache/kafka:3.9.1
   localstack: localstack/localstack:4.8
+  # Last community release with published images; pinned on purpose.
+  minio: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
+  mc: quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z
   nginx: nginx:1.27-alpine
   pgweb: sosedoff/pgweb:latest
   stackport: davireis/stackport:latest
@@ -23,6 +26,15 @@ service:
   frontendPort: 5173
   cdnPort: 80
   localstackPort: 4566
+  minioPort: 9000
+  minioConsolePort: 9001
+
+# S3 backend — enable exactly one. LocalStack (+ StackPort UI) is kept but off:
+# it costs far more CPU/RAM than MinIO for what this stack uses (plain S3).
+minio:
+  enabled: true
+localstack:
+  enabled: false
 
 ims:
   hpa:
@@ -49,10 +61,12 @@ env:
   KAFKA_TOPIC: video.uploaded
   KAFKA_GROUP_ID: ims-processor
   S3_BUCKET: videos
-  AWS_ACCESS_KEY_ID: test
-  AWS_SECRET_ACCESS_KEY: test
+  # Also MinIO's root credentials (password must be >= 8 chars).
+  AWS_ACCESS_KEY_ID: minioadmin
+  AWS_SECRET_ACCESS_KEY: minioadmin
   AWS_DEFAULT_REGION: us-east-1
-  S3_PUBLIC_ENDPOINT: http://127.0.0.1:4566
+  # Empty = derive from the enabled backend (MinIO :9000 / LocalStack :4566).
+  S3_PUBLIC_ENDPOINT: ""
   CDN_BASE_URL: http://127.0.0.1:8081
   HLS_SEGMENT_SECS: "6"
 
@@ -76,3 +90,7 @@ resources:
     requests:
       cpu: 250m
       memory: 512Mi
+  minio:
+    requests:
+      cpu: 100m
+      memory: 256Mi

@@ -1,6 +1,6 @@
 # Local setup
 
-Docker Compose runs the local data plane: LocalStack (S3), Postgres, Redis, Kafka, and nginx as the local CDN. The EMS API runs on the **host** with the system Rust toolchain.
+Docker Compose runs the local data plane: MinIO (S3), Postgres, Redis, Kafka, and nginx as the local CDN. The EMS API runs on the **host** with the system Rust toolchain.
 
 Architecture and API design: [README.md](../README.md).  
 Code map (start here for file routing): [wiki/INDEX.md](wiki/INDEX.md).
@@ -15,47 +15,48 @@ docker compose -f docker/docker-compose.yml ps
 Stop (keeps volumes): `docker compose -f docker/docker-compose.yml down`  
 Clean slate: add `-v`.
 
-Volumes: `localstack_data`, `postgres_data`, `redis_data`, `kafka_data`, `nginx_cache`.
+Volumes: `minio_data`, `postgres_data`, `redis_data`, `kafka_data`, `nginx_cache`.
 
 ## Browser UIs
 
-Do **not** open raw API ports (4566, 5432, 6379, 9092) in a browser.
+Do **not** open raw API ports (9000, 5432, 6379, 9092) in a browser.
 
 | What | URL | Notes |
 |---|---|---|
-| LocalStack (StackPort) | http://localhost:9008 | Proxied to `localstack:4566` |
+| MinIO console | http://localhost:9001 | `minioadmin` / `minioadmin` |
 | Postgres (pgweb) | http://localhost:8082 | DB `streaming` |
 | Redis Commander | http://localhost:8083 | |
 | Kafka UI | http://localhost:8084 | `video.uploaded` after first publish |
-| nginx CDN | http://localhost:8081 | `/videos/…` → LocalStack S3 |
+| nginx CDN | http://localhost:8081 | `/videos/…` → MinIO S3 |
 | **Macky Uploader** | http://localhost:5173 | React desk → EMS `:8080` (Vite proxy) |
 
 ## Host ↔ container endpoints
 
 | Service | From host | From Compose network |
 |---|---|---|
-| LocalStack S3 | `http://localhost:4566` | `http://localstack:4566` |
+| MinIO S3 | `http://localhost:9000` | `http://minio:9000` |
+| MinIO console | `http://localhost:9001` | `http://minio:9001` |
 | Postgres | `localhost:5432` | `postgres:5432` |
 | Redis | `localhost:6379` | `redis:6379` |
 | Kafka | `localhost:9092` | `kafka:29092` |
 | nginx CDN | `http://localhost:8081` | `http://nginx` |
 | **EMS API** | `http://localhost:8080` | (runs on host by default) |
 
-### LocalStack
+### MinIO
 
 | Setting | Value |
 |---|---|
 | Region | `us-east-1` |
-| Credentials | `test` / `test` |
-| Bucket | `videos` (created on first start + CORS) |
+| Credentials | `minioadmin` / `minioadmin` |
+| Bucket | `videos` (created by the `minio-init` one-shot container; `hls/` set to anonymous-read) |
 | Addressing | Path-style |
 
 ```bash
 export AWS_CONFIG_FILE="$PWD/docs/local-setup/config"
 export AWS_SHARED_CREDENTIALS_FILE="$PWD/docs/local-setup/credentials"
-aws s3 ls --profile localstack
-aws s3 ls s3://videos --recursive --profile localstack
-# or: docker exec localstack awslocal s3 ls s3://videos --recursive
+aws s3 ls --profile minio
+aws s3 ls s3://videos --recursive --profile minio
+# or: docker exec minio-init mc ls local/videos --recursive (needs `mc alias set local ...` first if reused)
 ```
 
 Keys:
@@ -83,9 +84,9 @@ cp docs/local-setup/.env.template .env
 # or: source docs/local-setup/export.sh
 ```
 
-Important vars: `DATABASE_URL`, `REDIS_URL`, `KAFKA_BOOTSTRAP_SERVERS`, `KAFKA_TOPIC`, `AWS_ENDPOINT_URL`, `S3_PUBLIC_ENDPOINT`, `S3_BUCKET`, `EMS_HTTP_PORT`, `RUST_LOG`, `CDN_BASE_URL`.
+Important vars: `DATABASE_URL`, `REDIS_URL`, `KAFKA_BOOTSTRAP_SERVERS`, `KAFKA_TOPIC`, `AWS_ENDPOINT_URL`, `S3_PUBLIC_ENDPOINT`, `S3_BUCKET`, `EMS_HTTP_PORT`, `RUST_LOG`, `CDN_BASE_URL`, `IMS_ENABLE_720P`, `IMS_ENABLE_1080P`.
 
-Presigned browser/curl uploads must use **`S3_PUBLIC_ENDPOINT=http://localhost:4566`**. In-container workers would use `localstack:4566` for the SDK endpoint only.
+Presigned browser/curl uploads must use **`S3_PUBLIC_ENDPOINT=http://localhost:9000`**. In-container workers would use `minio:9000` for the SDK endpoint only.
 
 ## Uploader UI
 
@@ -113,7 +114,7 @@ Enable Kubernetes in Docker Desktop, then:
 ./scripts/k8s-up.sh
 ```
 
-Uploader: http://127.0.0.1:5173 · pgweb: http://127.0.0.1:8082 · StackPort: http://127.0.0.1:9008 — [wiki/helm.md](wiki/helm.md).
+Uploader: http://127.0.0.1:5173 · pgweb: http://127.0.0.1:8082 · MinIO console: http://127.0.0.1:9001 — [wiki/helm.md](wiki/helm.md).
 
 ## Run EMS (system cargo)
 
@@ -149,7 +150,7 @@ curl -s localhost:8080/health
 curl -si -X POST localhost:8080/uploader/videos \
   -H 'content-type: application/json' \
   -d '{"file_size":1024,"content_type":"video/mp4"}'
-# PUT each returned parts[].url to LocalStack, then:
+# PUT each returned parts[].url to MinIO, then:
 curl -s -X POST localhost:8080/uploader/videos/<uuid>/complete
 # soft-delete example:
 # curl -s -X DELETE localhost:8080/uploader/videos/<uuid>
@@ -175,8 +176,8 @@ docker build -f backend/Dockerfile -t ems backend
 docker run --rm -p 8080:8080 --env-file .env \
   -e DATABASE_URL=postgres://streaming:streaming@host.docker.internal:5432/streaming \
   -e REDIS_URL=redis://host.docker.internal:6379 \
-  -e AWS_ENDPOINT_URL=http://host.docker.internal:4566 \
-  -e S3_PUBLIC_ENDPOINT=http://localhost:4566 \
+  -e AWS_ENDPOINT_URL=http://host.docker.internal:9000 \
+  -e S3_PUBLIC_ENDPOINT=http://localhost:9000 \
   -e KAFKA_BOOTSTRAP_SERVERS=host.docker.internal:9092 \
   ems
 ```
@@ -197,14 +198,13 @@ backend/
 docker/
   docker-compose.yml
   kafka/create-topic.sh      # video.uploaded × 12 partitions
-  localstack/init/ready.d/   # bucket videos + CORS
-  nginx/nginx.conf           # :8081 CDN, :9008 StackPort
+  nginx/nginx.conf           # :8081 CDN
 docs/local-setup.md
 docs/wiki/                   # code map — start at INDEX.md
 docs/local-setup/
   .env.template
   export.sh
-  config / credentials       # AWS profile localstack
+  config / credentials       # AWS profile minio
 .cursor/skills/              # project agent skills
 diagrams/
 frontend/                    # React uploader (Vite :5173)

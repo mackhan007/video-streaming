@@ -2,7 +2,7 @@
 
 Chart: `helm/streaming/` · local overlay: `values-local.yaml`
 
-Deploys **Postgres, Redis, Kafka, LocalStack S3, nginx CDN, EMS, IMS, frontend, pgweb, StackPort**.
+Deploys **Postgres, Redis, Kafka, MinIO S3, nginx CDN, EMS, IMS, frontend, pgweb**.
 
 ## Local (Docker Desktop Kubernetes)
 
@@ -10,13 +10,14 @@ Deploys **Postgres, Redis, Kafka, LocalStack S3, nginx CDN, EMS, IMS, frontend, 
 ./scripts/k8s-up.sh
 ```
 
-The frontend Service is **ClusterIP** (not on localhost by itself). Keep a port-forward running:
+The frontend Service is **LoadBalancer** (`values-local.yaml` sets `service.frontendType`) —
+Docker Desktop's Kubernetes auto-exposes it on **http://127.0.0.1:5173**, no port-forward or
+terminal to keep open. The other services (EMS, MinIO, CDN, pgweb) are still
+ClusterIP, so keep a port-forward running for those:
 
 ```bash
 ./scripts/k8s-pf.sh
 ```
-
-Then open **http://127.0.0.1:5173** in Chrome/Safari (not the cluster IP `10.96.x.x`).
 
 Live IMS/EMS logs (stdout; repo `logs/*.log` is host `dev.sh` only):
 
@@ -29,10 +30,10 @@ kubectl -n streaming logs -l app.kubernetes.io/component=ems -f
 |---|---|
 | http://127.0.0.1:5173 | Uploader UI |
 | http://127.0.0.1:8080 | EMS |
-| http://127.0.0.1:4566 | LocalStack S3 API (browser PUT) |
+| http://127.0.0.1:9000 | MinIO S3 API (browser PUT) |
 | http://127.0.0.1:8081 | CDN |
 | http://127.0.0.1:8082 | pgweb (Postgres) |
-| http://127.0.0.1:9008 | StackPort (S3 UI) |
+| http://127.0.0.1:9001 | MinIO console (`minioadmin` / `minioadmin`) |
 
 ```bash
 helm uninstall streaming -n streaming
@@ -54,8 +55,8 @@ docker build -f frontend/Dockerfile -t frontend:latest frontend
 |---|---|
 | `templates/postgres.yaml` · `redis.yaml` · `kafka.yaml` | Data plane |
 | `templates/kafka-init.yaml` | `video.uploaded` × 12 partitions |
-| `templates/localstack.yaml` | S3 + CORS bucket `videos` |
-| `templates/localstack-ui.yaml` | StackPort S3 UI (`:9008`) |
+| `templates/minio.yaml` | S3 + console (`:9001`); `bucket-init` sidecar creates `videos` and opens `hls/` for anonymous read. On by default (`minio.enabled`) |
+| `templates/localstack.yaml` · `localstack-ui.yaml` | LocalStack S3 + StackPort — **disabled** (`localstack.enabled: false`); enable one S3 backend at a time |
 | `templates/pgweb.yaml` | Postgres browser UI (`:8082`) |
 | `templates/nginx.yaml` | CDN `/videos/` |
 | `templates/ems.yaml` · `ims.yaml` | App + IMS HPA (optional) |

@@ -5,8 +5,9 @@ replicaCount:
 
 service:
   # Docker Desktop's Kubernetes auto-exposes LoadBalancer services on
-  # localhost — no kubectl port-forward needed to reach the frontend.
+  # localhost — no kubectl port-forward needed to reach these.
   frontendType: LoadBalancer
+  minioType: LoadBalancer
 
 image:
   ems: ems:latest
@@ -36,7 +37,6 @@ ims:
   enable1080p: false
 
 env:
-  S3_PUBLIC_ENDPOINT: http://127.0.0.1:4566
   CDN_BASE_URL: http://127.0.0.1:8081
 
 resources:

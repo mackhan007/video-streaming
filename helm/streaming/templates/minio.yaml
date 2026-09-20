@@ -1,0 +1,122 @@
+{{- if .Values.minio.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "streaming.name" . }}-minio-init
+  labels:
+    {{- include "streaming.labels" . | nindent 4 }}
+data:
+  init-bucket.sh: |
+    #!/bin/bash
+    set -euo pipefail
+    export MC_CONFIG_DIR=/tmp/.mc
+    for i in $(seq 1 60); do
+      mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null 2>&1 && break
+      sleep 2
+    done
+    mc mb --ignore-existing "local/${S3_BUCKET}"
+    # nginx (the CDN) fetches HLS objects anonymously; raw uploads stay private.
+    mc anonymous set download "local/${S3_BUCKET}/hls"
+    echo "bucket ${S3_BUCKET} ready"
+    exec sleep infinity
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "streaming.name" . }}-minio
+  labels:
+    {{- include "streaming.labels" . | nindent 4 }}
+    app.kubernetes.io/component: minio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: minio
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: minio
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: minio
+          image: {{ .Values.image.minio }}
+          args: ["server", "/data", "--console-address", ":9001"]
+          ports:
+            - containerPort: 9000
+              name: s3
+            - containerPort: 9001
+              name: console
+          env:
+            - name: MINIO_ROOT_USER
+              value: {{ .Values.env.AWS_ACCESS_KEY_ID | quote }}
+            - name: MINIO_ROOT_PASSWORD
+              value: {{ .Values.env.AWS_SECRET_ACCESS_KEY | quote }}
+            - name: MINIO_REGION
+              value: {{ .Values.env.AWS_DEFAULT_REGION | quote }}
+            - name: MINIO_API_CORS_ALLOW_ORIGIN
+              value: "*"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            {{- toYaml .Values.resources.minio | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /minio/health/ready
+              port: s3
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: s3
+            initialDelaySeconds: 10
+            periodSeconds: 15
+        # Sidecar rather than a Job: the data volume is an emptyDir, so the
+        # bucket has to be recreated whenever the pod is, not just on helm install.
+        - name: bucket-init
+          image: {{ .Values.image.mc }}
+          command: ["/bin/bash", "/scripts/init-bucket.sh"]
+          env:
+            - name: MINIO_ROOT_USER
+              value: {{ .Values.env.AWS_ACCESS_KEY_ID | quote }}
+            - name: MINIO_ROOT_PASSWORD
+              value: {{ .Values.env.AWS_SECRET_ACCESS_KEY | quote }}
+            - name: S3_BUCKET
+              value: {{ .Values.env.S3_BUCKET | quote }}
+          volumeMounts:
+            - name: init
+              mountPath: /scripts
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+      volumes:
+        - name: init
+          configMap:
+            name: {{ include "streaming.name" . }}-minio-init
+            defaultMode: 0755
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "streaming.name" . }}-minio
+  labels:
+    {{- include "streaming.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.minioType | default "ClusterIP" }}
+  selector:
+    app.kubernetes.io/component: minio
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: s3
+      port: {{ .Values.service.minioPort }}
+      targetPort: s3
+    - name: console
+      port: {{ .Values.service.minioConsolePort }}
+      targetPort: console
+{{- end }}

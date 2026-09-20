@@ -1,6 +1,6 @@
-[profile localstack]
+[profile minio]
 region = us-east-1
 output = json
-endpoint_url = http://localhost:4566
+endpoint_url = http://localhost:9000
 s3 =
     addressing_style = path
