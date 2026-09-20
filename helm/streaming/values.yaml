@@ -70,3 +70,7 @@ resources:
     requests:
       cpu: 50m
       memory: 64Mi
+  kafka:
+    requests:
+      cpu: 250m
+      memory: 512Mi

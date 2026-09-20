@@ -54,6 +54,8 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/kafka/data
+          resources:
+            {{- toYaml .Values.resources.kafka | nindent 12 }}
           readinessProbe:
             exec:
               command:

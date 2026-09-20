@@ -21,7 +21,12 @@ ims:
     maxReplicas: 2
     cpuPercent: 70
   chunkSecs: 60
-  encodeParallel: 2
+  # 3 replicas x encodeParallel jobs, each running a 3-rung ffmpeg ladder,
+  # must fit in the box's real core count (10 here) or every pod — IMS,
+  # Kafka's own readiness probe, everything — gets starved to a crawl
+  # under CFS proportional-share scheduling. Keep replicas x encodeParallel
+  # comfortably under vCPU count.
+  encodeParallel: 1
   preset: ultrafast
 
 env:
@@ -34,13 +39,24 @@ resources:
       cpu: 100m
       memory: 256Mi
   ims:
+    # requests is what sets each pod's CPU scheduling weight under
+    # contention — limits only caps the ceiling. This was 250m against a
+    # 4-core limit, so under load IMS pods got squeezed to a sliver of a
+    # core combined instead of the cores the ffmpeg jobs actually needed.
     requests:
-      cpu: 250m
+      cpu: "1"
       memory: 512Mi
     limits:
-      cpu: "4"
+      cpu: "3"
       memory: 2Gi
   frontend:
     requests:
       cpu: 50m
       memory: 64Mi
+  kafka:
+    # No request at all previously meant BestEffort-tier CPU shares, so
+    # kafka-broker-api-versions.sh (the readiness probe, a JVM subprocess
+    # with a 10s timeout) starved under load and flapped Unready.
+    requests:
+      cpu: 500m
+      memory: 768Mi
