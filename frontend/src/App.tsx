@@ -7,14 +7,22 @@ import { UploadsSection } from "./components/UploadsSection";
 
 export function App() {
   const [section, setSection] = useState<DeskSection>("upload");
+  const [viewFileId, setViewFileId] = useState<string | null>(null);
 
   return (
     <div className="min-h-screen bg-paper">
       <TopBar brand="Macky" />
       <DeskNav current={section} onChange={setSection} />
       <main>
-        {section === "upload" ? <UploadWorkbench /> : null}
-        {section === "library" ? <UploadsSection /> : null}
+        {section === "upload" ? <UploadWorkbench viewFileId={viewFileId} /> : null}
+        {section === "library" ? (
+          <UploadsSection
+            onSelect={(fileId) => {
+              setViewFileId(fileId);
+              setSection("upload");
+            }}
+          />
+        ) : null}
         {section === "links" ? <LinksSection /> : null}
       </main>
     </div>

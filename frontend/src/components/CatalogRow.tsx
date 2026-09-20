@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import type { CatalogItem } from "../api/types";
 import { formatBytes } from "../ui/formatBytes";
 import { formatWhen, statusChipClass } from "../ui/statusChip";
@@ -6,12 +6,30 @@ import { formatWhen, statusChipClass } from "../ui/statusChip";
 type Props = {
   item: CatalogItem;
   action?: ReactNode;
+  onSelect?: () => void;
 };
 
-export function CatalogRow({ item, action }: Props) {
+export function CatalogRow({ item, action, onSelect }: Props) {
   const title = item.title?.trim() || "Untitled video";
   return (
-    <li className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3.5 last:border-b-0 sm:px-5">
+    <li
+      className={`flex flex-wrap items-center gap-3 border-b border-line px-4 py-3.5 last:border-b-0 sm:px-5 ${
+        onSelect ? "cursor-pointer hover:bg-paper-deep/40" : ""
+      }`}
+      {...(onSelect
+        ? {
+            role: "button",
+            tabIndex: 0,
+            onClick: onSelect,
+            onKeyDown: (e: KeyboardEvent) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelect();
+              }
+            },
+          }
+        : {})}
+    >
       <span
         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-yt-sm bg-paper-deep text-ink-muted"
         aria-hidden
@@ -34,7 +52,9 @@ export function CatalogRow({ item, action }: Props) {
       >
         {item.status}
       </span>
-      {action}
+      {action ? (
+        <span onClick={(e) => e.stopPropagation()}>{action}</span>
+      ) : null}
     </li>
   );
 }

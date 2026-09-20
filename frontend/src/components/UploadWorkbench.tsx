@@ -11,11 +11,18 @@ import { btnPrimary } from "../ui/classes";
 
 const LOCKED = new Set(["requesting", "transferring", "paused", "completing"]);
 
-export function UploadWorkbench() {
+type Props = {
+  /** A video selected from "My videos" to watch progress for. An upload
+   * started in this session (state.fileId) always takes priority. */
+  viewFileId?: string | null;
+};
+
+export function UploadWorkbench({ viewFileId = null }: Props) {
   const { state, setTitle, setFile, start, pause, resume, abort, reset } =
     useVideoUpload();
   const locked = LOCKED.has(state.phase);
-  const pipeline = usePipeline(state.fileId);
+  const activeFileId = state.fileId ?? viewFileId;
+  const pipeline = usePipeline(activeFileId);
 
   return (
     <section

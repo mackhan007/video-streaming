@@ -11,6 +11,7 @@ type Props = {
   headingId: string;
   empty: string;
   action?: (item: CatalogItem) => ReactNode;
+  onSelect?: (item: CatalogItem) => void;
   footer?: ReactNode;
 };
 
@@ -21,6 +22,7 @@ export function CatalogPanel({
   headingId,
   empty,
   action,
+  onSelect,
   footer,
 }: Props) {
   const { items, loading, loadingMore, error, hasMore, loadMore, refresh } =
@@ -58,7 +60,12 @@ export function CatalogPanel({
         ) : (
           <ul className="m-0 list-none p-0">
             {items.map((item) => (
-              <CatalogRow key={item.file_id} item={item} action={action?.(item)} />
+              <CatalogRow
+                key={item.file_id}
+                item={item}
+                action={action?.(item)}
+                onSelect={onSelect ? () => onSelect(item) : undefined}
+              />
             ))}
           </ul>
         )}
