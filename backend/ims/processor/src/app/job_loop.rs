@@ -111,6 +111,8 @@ async fn finalize_one(runner: &EncodeJobRunner, file_id: VideoId) -> anyhow::Res
                 PipelineStepState::Done,
                 Some("variant ready"),
                 None,
+                runner.ffmpeg.enable_720p,
+                runner.ffmpeg.enable_1080p,
             )
             .await;
             track(

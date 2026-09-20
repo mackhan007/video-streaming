@@ -33,6 +33,8 @@ pub struct ProcessUploaded {
     pub work_dir: String,
     pub chunk_secs: f64,
     pub ffmpeg_path: String,
+    pub enable_720p: bool,
+    pub enable_1080p: bool,
 }
 
 impl ProcessUploaded {
@@ -47,7 +49,15 @@ impl ProcessUploaded {
                 ProcessError::Transcode(TranscodeError::Internal(e.into()))
             })?;
         }
-        if skip_if_batch_live(&self.jobs, self.pipeline.as_ref(), file_id).await? {
+        if skip_if_batch_live(
+            &self.jobs,
+            self.pipeline.as_ref(),
+            file_id,
+            self.enable_720p,
+            self.enable_1080p,
+        )
+        .await?
+        {
             return Ok(());
         }
 
@@ -75,6 +85,8 @@ impl ProcessUploaded {
             PipelineStepState::Running,
             Some("encoding ladder"),
             None,
+            self.enable_720p,
+            self.enable_1080p,
         )
         .await;
 
@@ -112,6 +124,8 @@ impl ProcessUploaded {
                     PipelineStepState::Failed,
                     None,
                     Some(&e.to_string()),
+                    self.enable_720p,
+                    self.enable_1080p,
                 )
                 .await;
                 Err(e)

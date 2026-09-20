@@ -50,6 +50,8 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         chunk_secs: config.chunk_secs,
         encode_parallel: config.encode_parallel,
         preset: config.ffmpeg_preset.clone(),
+        enable_720p: config.enable_720p,
+        enable_1080p: config.enable_1080p,
     });
     let objects_arc = objects.clone();
 
@@ -64,6 +66,8 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         config.work_dir.clone(),
         config.chunk_secs,
         config.ffmpeg_path.clone(),
+        config.enable_720p,
+        config.enable_1080p,
     )?;
 
     let job_loop = EncodeJobLoop::new(

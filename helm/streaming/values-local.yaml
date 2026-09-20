@@ -21,13 +21,19 @@ ims:
     maxReplicas: 2
     cpuPercent: 70
   chunkSecs: 60
-  # 3 replicas x encodeParallel jobs, each running a 3-rung ffmpeg ladder,
-  # must fit in the box's real core count (10 here) or every pod — IMS,
-  # Kafka's own readiness probe, everything — gets starved to a crawl
-  # under CFS proportional-share scheduling. Keep replicas x encodeParallel
-  # comfortably under vCPU count.
+  # 3 replicas x encodeParallel jobs must fit in the box's real core count
+  # (10 here) or every pod — IMS, Kafka's own readiness probe, everything —
+  # gets starved to a crawl under CFS proportional-share scheduling.
+  # Measured: even with 1080p dropped, a single packed 2-rung chunk job still
+  # sustains ~1.4+ cores, so parallel: 2 (6 concurrent jobs, ~8.4+ cores just
+  # for ffmpeg) re-oversubscribed the box — chunks ran but never finished in
+  # a reasonable time. parallel: 1 (3 concurrent) is the config that actually
+  # completed a full 49-chunk video (46 min, zero restarts) — verify any
+  # future bump against a real timed run, not just theoretical CPU math.
   encodeParallel: 1
   preset: ultrafast
+  enable720p: true
+  enable1080p: false
 
 env:
   S3_PUBLIC_ENDPOINT: http://127.0.0.1:4566

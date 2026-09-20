@@ -30,6 +30,8 @@ impl KafkaWorker {
         work_dir: String,
         chunk_secs: f64,
         ffmpeg_path: String,
+        enable_720p: bool,
+        enable_1080p: bool,
     ) -> anyhow::Result<Self> {
         let consumer: StreamConsumer = ClientConfig::new()
             .set("bootstrap.servers", bootstrap)
@@ -53,6 +55,8 @@ impl KafkaWorker {
                 work_dir,
                 chunk_secs,
                 ffmpeg_path,
+                enable_720p,
+                enable_1080p,
             },
         })
     }

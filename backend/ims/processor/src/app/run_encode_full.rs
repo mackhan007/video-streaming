@@ -53,6 +53,8 @@ pub async fn execute_full_file(
         PipelineStepState::Done,
         Some("variant ready"),
         None,
+        runner.ffmpeg.enable_720p,
+        runner.ffmpeg.enable_1080p,
     )
     .await;
     track(

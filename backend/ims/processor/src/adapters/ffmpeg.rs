@@ -11,7 +11,7 @@ use crate::adapters::ffmpeg_abr::{encode_chunked_abr, encode_full_abr};
 use crate::adapters::ffmpeg_plan::should_chunk;
 use crate::adapters::ffmpeg_probe::{ffprobe_bin, probe_duration_secs, source_ladder};
 use crate::adapters::hls_files::collect_hls_tree;
-use crate::adapters::ladder::LadderRung;
+use crate::adapters::ladder::{LadderFlags, LadderRung};
 use crate::adapters::master_playlist::write_master;
 use crate::ports::transcoder::{HlsOutput, HlsTranscoder, TranscodeError};
 
@@ -21,6 +21,17 @@ pub struct FfmpegHls {
     pub chunk_secs: f64,
     pub encode_parallel: usize,
     pub preset: String,
+    pub enable_720p: bool,
+    pub enable_1080p: bool,
+}
+
+impl FfmpegHls {
+    pub fn ladder_flags(&self) -> LadderFlags {
+        LadderFlags {
+            enable_720p: self.enable_720p,
+            enable_1080p: self.enable_1080p,
+        }
+    }
 }
 
 impl FfmpegHls {
@@ -147,7 +158,7 @@ impl HlsTranscoder for FfmpegHls {
             .map_err(TranscodeError::Internal)?;
         let probe = ffprobe_bin(&self.ffmpeg_path);
         let duration = probe_duration_secs(&probe, input).await.ok();
-        let ladder = source_ladder(&probe, input).await;
+        let ladder = source_ladder(&probe, input, self.ladder_flags()).await;
         Self::ensure_variant_dirs(out_dir, ladder.len()).await?;
         let master = out_dir.join("master.m3u8");
         let labels: Vec<_> = ladder.iter().map(|r| r.label).collect();

@@ -33,6 +33,8 @@ ims:
   chunkSecs: 90
   encodeParallel: 2
   preset: ultrafast
+  enable720p: true
+  enable1080p: true
 
 postgres:
   user: streaming

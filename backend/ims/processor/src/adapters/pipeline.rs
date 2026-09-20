@@ -77,15 +77,17 @@ pub async fn track(
     }
 }
 
-/// Mark all ABR rungs (360/720/1080) with the same state.
+/// Mark the currently-enabled ABR rungs with the same state.
 pub async fn track_abr(
     pipeline: &dyn PipelineRepository,
     video_id: VideoId,
     state: PipelineStepState,
     detail: Option<&str>,
     error: Option<&str>,
+    enable_720p: bool,
+    enable_1080p: bool,
 ) {
-    for step in PipelineStepName::ABR {
-        track(pipeline, video_id, step, state, detail, error).await;
+    for step in PipelineStepName::abr_enabled(enable_720p, enable_1080p) {
+        track(pipeline, video_id, *step, state, detail, error).await;
     }
 }

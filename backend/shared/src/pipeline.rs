@@ -43,6 +43,19 @@ impl PipelineStepName {
 
     /// ABR ladder rungs (FFmpeg produces these in one pass).
     pub const ABR: [Self; 3] = [Self::Hls360, Self::Hls720, Self::Hls1080];
+
+    /// Rungs actually enabled for this run — mirrors the ladder cap in
+    /// `ims::adapters::ladder::LadderFlags` (1080p implicitly requires 720p),
+    /// so a disabled rung never gets tracked as if it were encoded.
+    pub fn abr_enabled(enable_720p: bool, enable_1080p: bool) -> &'static [Self] {
+        if !enable_720p {
+            &Self::ABR[..1]
+        } else if !enable_1080p {
+            &Self::ABR[..2]
+        } else {
+            &Self::ABR[..3]
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

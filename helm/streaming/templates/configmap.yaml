@@ -21,4 +21,6 @@ data:
   IMS_CHUNK_SECS: {{ .Values.ims.chunkSecs | quote }}
   IMS_ENCODE_PARALLEL: {{ .Values.ims.encodeParallel | quote }}
   FFMPEG_PRESET: {{ .Values.ims.preset | quote }}
+  IMS_ENABLE_720P: {{ .Values.ims.enable720p | quote }}
+  IMS_ENABLE_1080P: {{ .Values.ims.enable1080p | quote }}
   RUST_LOG: "ims_processor=info,ems_server=info,ems_upload=info,info"

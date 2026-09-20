@@ -43,14 +43,30 @@ pub const DEFAULT_LADDER: &[LadderRung] = &[
     },
 ];
 
-/// Drop rungs taller than the source so we do not spend CPU upscaling.
-pub fn for_source_height(src_h: u32) -> &'static [LadderRung] {
+/// Which rungs above the base (360p) are allowed, e.g. via env feature flags.
+/// 1080p without 720p would leave a gap in the ladder (720p disabled but a
+/// higher rung still enabled), which breaks the contiguous-prefix layout
+/// everything else here assumes — so 1080p implicitly requires 720p.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct LadderFlags {
+    pub enable_720p: bool,
+    pub enable_1080p: bool,
+}
+
+/// Drop rungs taller than the source, then apply feature-flag caps, so we do
+/// not spend CPU upscaling or encoding a disabled rung.
+pub fn for_source_height(src_h: u32, flags: LadderFlags) -> &'static [LadderRung] {
     let cap = src_h.max(DEFAULT_LADDER[0].height);
-    let n = DEFAULT_LADDER
+    let mut n = DEFAULT_LADDER
         .iter()
         .take_while(|r| r.height <= cap)
         .count()
         .max(1);
+    if !flags.enable_720p {
+        n = n.min(1);
+    } else if !flags.enable_1080p {
+        n = n.min(2);
+    }
     &DEFAULT_LADDER[..n]
 }
 
@@ -58,16 +74,47 @@ pub fn for_source_height(src_h: u32) -> &'static [LadderRung] {
 mod tests {
     use super::*;
 
+    const ALL: LadderFlags = LadderFlags {
+        enable_720p: true,
+        enable_1080p: true,
+    };
+
     #[test]
     fn skips_1080_for_720_source() {
-        let l = for_source_height(720);
+        let l = for_source_height(720, ALL);
         assert_eq!(l.len(), 2);
         assert_eq!(l[1].label, "720p");
     }
 
     #[test]
     fn skips_720_for_480_source() {
-        let l = for_source_height(480);
+        let l = for_source_height(480, ALL);
+        assert_eq!(l.len(), 1);
+        assert_eq!(l[0].label, "360p");
+    }
+
+    #[test]
+    fn flag_disables_1080p_even_for_1080_source() {
+        let l = for_source_height(
+            1080,
+            LadderFlags {
+                enable_720p: true,
+                enable_1080p: false,
+            },
+        );
+        assert_eq!(l.len(), 2);
+        assert_eq!(l[1].label, "720p");
+    }
+
+    #[test]
+    fn disabling_720p_also_drops_1080p() {
+        let l = for_source_height(
+            1080,
+            LadderFlags {
+                enable_720p: false,
+                enable_1080p: true,
+            },
+        );
         assert_eq!(l.len(), 1);
         assert_eq!(l[0].label, "360p");
     }

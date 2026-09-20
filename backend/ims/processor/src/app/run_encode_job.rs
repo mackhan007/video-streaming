@@ -56,6 +56,8 @@ impl EncodeJobRunner {
                 PipelineStepState::Failed,
                 None,
                 Some(&msg),
+                self.ffmpeg.enable_720p,
+                self.ffmpeg.enable_1080p,
             )
             .await;
         }
@@ -85,7 +87,7 @@ impl EncodeJobRunner {
         };
         if job.pack_ladder {
             let probe = ffprobe_bin(&self.ffmpeg.ffmpeg_path);
-            let ladder = source_ladder(&probe, &named).await;
+            let ladder = source_ladder(&probe, &named, self.ffmpeg.ladder_flags()).await;
             encode_chunk_ladder(
                 self.ffmpeg.as_ref(),
                 &named,

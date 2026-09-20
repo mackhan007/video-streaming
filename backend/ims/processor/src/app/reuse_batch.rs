@@ -12,6 +12,8 @@ pub async fn skip_if_batch_live(
     jobs: &Arc<dyn EncodeJobRepository>,
     pipeline: &dyn PipelineRepository,
     file_id: VideoId,
+    enable_720p: bool,
+    enable_1080p: bool,
 ) -> Result<bool, TranscodeError> {
     let map_err = |e| TranscodeError::Internal(anyhow::Error::from(e));
     if jobs.revive_failed_batch(file_id).await.map_err(map_err)? {
@@ -31,6 +33,8 @@ pub async fn skip_if_batch_live(
             PipelineStepState::Running,
             Some("encoding ladder"),
             None,
+            enable_720p,
+            enable_1080p,
         )
         .await;
         return Ok(true);

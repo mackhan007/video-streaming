@@ -4,7 +4,7 @@ use std::process::Stdio;
 use anyhow::Context;
 use tokio::process::Command;
 
-use crate::adapters::ladder::{for_source_height, LadderRung};
+use crate::adapters::ladder::{for_source_height, LadderFlags, LadderRung};
 use crate::ports::transcoder::TranscodeError;
 
 /// `ffprobe` next to `ffmpeg` on PATH (Homebrew/apt).
@@ -78,7 +78,11 @@ pub async fn probe_height_px(ffprobe: &str, input: &Path) -> Result<u32, Transco
         .map_err(|_| TranscodeError::Ffmpeg(format!("bad height: {s}")))
 }
 
-pub async fn source_ladder(ffprobe: &str, input: &Path) -> &'static [LadderRung] {
+pub async fn source_ladder(
+    ffprobe: &str,
+    input: &Path,
+    flags: LadderFlags,
+) -> &'static [LadderRung] {
     let h = probe_height_px(ffprobe, input).await.unwrap_or(1080);
-    for_source_height(h)
+    for_source_height(h, flags)
 }
