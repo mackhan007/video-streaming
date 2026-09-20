@@ -18,6 +18,7 @@ Human overview: [README.md](../../README.md) · Runbook: [local-setup.md](../loc
 | Postgres schema & indexes                | [data-model.md](data-model.md)       |
 | Env vars & ports                         | [env-and-ports.md](env-and-ports.md) |
 | Docker / MinIO / nginx                   | [infra.md](infra.md)                 |
+| Swapping the S3 backend (checklist)      | [s3-backend-migrations.md](s3-backend-migrations.md) |
 | Helm / Kubernetes (full stack)           | [helm.md](helm.md)                   |
 | Coding conventions (SOLID, 200 lines, …) | [conventions.md](conventions.md)     |
 | **Commit past changes** (one commit per task) | [commit-past-changes.md](commit-past-changes.md) |
