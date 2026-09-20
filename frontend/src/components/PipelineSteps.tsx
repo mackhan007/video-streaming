@@ -15,7 +15,11 @@ const CORE: { id: string; label: string; hint: string }[] = [
   { id: "play", label: "Stream", hint: "CDN playlist" },
 ];
 
-const ABR: { id: string; label: string; hint: string }[] = [
+// Fixed rung order; which of these actually render is driven by which
+// hls_* steps the backend reports — a rung disabled via IMS_ENABLE_720P /
+// IMS_ENABLE_1080P is never tracked, so it never appears here either
+// (rather than showing a card that's permanently stuck on "todo").
+const ABR_ORDER: { id: string; label: string; hint: string }[] = [
   { id: "hls_360", label: "360p", hint: "ABR rung" },
   { id: "hls_720", label: "720p", hint: "ABR rung" },
   { id: "hls_1080", label: "1080p", hint: "ABR rung" },
@@ -130,6 +134,7 @@ export function PipelineSteps({ steps, uploadPhase }: Props) {
   const ticking = steps.some((s) => s.state === "running") ||
     ["requesting", "transferring", "paused", "completing"].includes(uploadPhase);
   const now = useNow(ticking);
+  const abr = ABR_ORDER.filter((m) => steps.some((s) => s.step === m.id));
   return (
     <div className="mt-6 space-y-3">
       <ol className="grid gap-2 sm:grid-cols-5">
@@ -144,21 +149,27 @@ export function PipelineSteps({ steps, uploadPhase }: Props) {
           />
         ))}
       </ol>
-      <p className="m-0 text-[11px] font-semibold uppercase tracking-wide text-ink-soft">
-        Adaptive bitrate
-      </p>
-      <ol className="grid gap-2 sm:grid-cols-3">
-        {ABR.map((m, i) => (
-          <StepCard
-            key={m.id}
-            index={i + 1}
-            meta={m}
-            steps={steps}
-            uploadPhase={uploadPhase}
-            now={now}
-          />
-        ))}
-      </ol>
+      {abr.length > 0 ? (
+        <>
+          <p className="m-0 text-[11px] font-semibold uppercase tracking-wide text-ink-soft">
+            Adaptive bitrate
+          </p>
+          <ol
+            className={`grid gap-2 ${abr.length === 1 ? "sm:grid-cols-1" : abr.length === 2 ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}
+          >
+            {abr.map((m, i) => (
+              <StepCard
+                key={m.id}
+                index={i + 1}
+                meta={m}
+                steps={steps}
+                uploadPhase={uploadPhase}
+                now={now}
+              />
+            ))}
+          </ol>
+        </>
+      ) : null}
     </div>
   );
 }

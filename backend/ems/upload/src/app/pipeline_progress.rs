@@ -35,6 +35,13 @@ fn progress_for(
     if !tracks_encode(name) {
         return None;
     }
+    // A rung IMS has disabled (IMS_ENABLE_720P/1080P) never gets `track_abr`
+    // called on it, so its step row stays `pending` forever. Don't attach
+    // the packed ladder's shared chunk progress to a rung that was never
+    // actually part of the encode.
+    if is_abr_rung(name) && state == PipelineStepState::Pending {
+        return None;
+    }
     if progress.rungs.is_empty() {
         return match state {
             PipelineStepState::Done => Some((100, 1, 1)),
@@ -56,6 +63,13 @@ fn tracks_encode(name: PipelineStepName) -> bool {
             | PipelineStepName::Hls360
             | PipelineStepName::Hls720
             | PipelineStepName::Hls1080
+    )
+}
+
+fn is_abr_rung(name: PipelineStepName) -> bool {
+    matches!(
+        name,
+        PipelineStepName::Hls360 | PipelineStepName::Hls720 | PipelineStepName::Hls1080
     )
 }
 
@@ -156,5 +170,30 @@ mod tests {
         assert_eq!(views[0].progress_pct, Some(100));
         assert_eq!(views[1].progress_pct, Some(50));
         assert_eq!(views[2].progress_pct, Some(0));
+    }
+
+    #[test]
+    fn disabled_rung_stuck_pending_gets_no_progress() {
+        let progress = EncodeProgress {
+            pack_ladder: true,
+            rungs: vec![RungProgress {
+                rung: 0,
+                done: 3,
+                total: 49,
+            }],
+        };
+        let views = attach_progress(
+            vec![
+                step(PipelineStepName::Hls360, PipelineStepState::Running),
+                step(PipelineStepName::Hls720, PipelineStepState::Running),
+                step(PipelineStepName::Hls1080, PipelineStepState::Pending),
+            ],
+            &progress,
+        );
+        assert_eq!(views[0].progress_pct, Some(6));
+        assert_eq!(views[1].progress_pct, Some(6));
+        assert_eq!(views[2].progress_pct, None);
+        assert_eq!(views[2].chunks_done, None);
+        assert_eq!(views[2].chunks_total, None);
     }
 }
